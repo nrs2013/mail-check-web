@@ -2355,12 +2355,12 @@
       const rawSubj = decodeMimeWord(lastMsg.subject || "");
       const replySubj = /^re:/i.test(rawSubj) ? rawSubj : "Re: " + rawSubj;
       const fwdSubj = /^fwd?:/i.test(rawSubj) ? rawSubj : "Fwd: " + rawSubj;
-      // 短い引用本文（mailto URL長すぎ問題回避）
-      // 署名がある場合：本文先頭に空行2つ→署名→空行→引用 の順
+      // mailto URLは2000字制限あり（macOS Mail）。引用は省いて署名だけにする
+      // 元メールの中身は左のカードで見えてるので、本文には返信スペース＋署名だけ入れる
       const _webSettings = (function(){ try { return JSON.parse(localStorage.getItem("mailCheckWebSettings_v1") || "{}"); } catch(e) { return {}; } })();
       const _signature = (_webSettings.userSignature || "").trim();
       const _signatureBlock = _signature ? ("\n\n--\n" + _signature) : "";
-      const shortQuote = "\n\n" + _signatureBlock + "\n\n--- " + senderName(lastMsg.sender) + " さんのメール ---\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 300));
+      const shortQuote = "\n\n" + _signatureBlock;
       // To/Ccから自分(ME)を除外したリストを作る → 全員返信用
       const extractEmail = (s) => {
         const m = String(s || "").match(/<([^>]+)>/);
@@ -2386,7 +2386,7 @@
       // 3. 転送（宛先空、件名 Fwd:、本文に元メール）
       const mailtoFwd = "mailto:"
         + "?subject=" + encodeURIComponent(fwdSubj)
-        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 600)));
+        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 150)));
 
       document.getElementById("mail-reply-sender").href = mailtoSender;
       document.getElementById("mail-reply-all").href = mailtoAll;
