@@ -1081,9 +1081,32 @@
     return out;
   }
   function _splitAddrs(s) {
+    // 引用符内カンマや角括弧入れ子に強い状態機械パーサ
+    // 例: "Smith, John" <a@b>, "Doe, Jane" <c@d> → 2件正しく分割
     if (!s) return [];
-    // 簡易分割（"Name" <a@b>, c@d → ["\"Name\" <a@b>", "c@d"]）
-    return s.split(/,(?![^<]*>)/).map(x => x.trim()).filter(Boolean);
+    const out = [];
+    let buf = "";
+    let inQuote = false;
+    let bracket = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "\\" && i + 1 < s.length) { buf += c + s[++i]; continue; }
+      if (c === '"') { inQuote = !inQuote; buf += c; continue; }
+      if (!inQuote) {
+        if (c === "<") { bracket++; buf += c; continue; }
+        if (c === ">") { bracket = Math.max(0, bracket - 1); buf += c; continue; }
+        if (c === "," && bracket === 0) {
+          const t = buf.trim();
+          if (t) out.push(t);
+          buf = "";
+          continue;
+        }
+      }
+      buf += c;
+    }
+    const t = buf.trim();
+    if (t) out.push(t);
+    return out;
   }
   function _toMcpMessage(msg) {
     const headers = msg.payload ? msg.payload.headers || [] : [];
