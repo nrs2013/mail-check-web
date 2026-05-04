@@ -3122,8 +3122,10 @@
         matches.forEach(url => {
           // 末尾の不要文字（句読点等）削除
           const cleaned = url.replace(/[.,;:!?'"」）)】>]+$/, "");
-          if (!seen.has(cleaned)) {
-            seen.add(cleaned);
+          // ドメイン+パスをキーに（クエリ違いの重複を排除）
+          const key = cleaned.split("?")[0].replace(/\/+$/, "").toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
             found.push({ url: cleaned, label: p.label, icon: p.icon });
           }
         });
