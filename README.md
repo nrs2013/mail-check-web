@@ -1,28 +1,26 @@
-# Mail-Check! Web版（Gemini版）
+# Mail-Check! Web版（GitHub Pages版）
 
 Gmail を使ったメール仕分けダッシュボード（独立Webアプリ）。
-Cowork 不要、ブラウザだけで動く。
+GitHub Pages で完全無料で動く。
 
-- **対象**: のむさん（nomura@nrs1.jp）専用
-- **AI**: Google Gemini 2.0 Flash（**無料枠 1日1500回**）
-- **デプロイ**: Vercel（無料）
+## 本番URL（GitHub Pages 有効化後）
 
-## 必要な準備
+`https://nrs2013.github.io/mail-check-web/`
 
-1. **Gemini API キー**（無料・3分）
-   - https://aistudio.google.com/apikey で取得
-2. **Vercel アカウント**（無料・count-down-studio と同じものでOK）
+## 機能
 
-## デプロイ手順
+- Google でログイン（Gmail OAuth・ブラウザ直接）
+- 自分宛・自社・To/Cc メール仕分け
+- AI要約（Google Gemini 2.0 Flash・無料枠）
+- PIC UP! 案件サマリー
 
-1. Vercel で GitHub リポジトリ `nrs2013/mail-check-web` を Import
-2. 環境変数 `GEMINI_API_KEY` を設定
-3. Deploy
+## 使い方
 
-## ローカル開発
+1. 上のURLを開く
+2. 初回設定：API キー入力（Gemini と Google OAuth Client ID）
+3. 「Googleでログイン」→ Gmail 取得開始
 
-```bash
-npm install
-cp .env.example .env  # API キーを記入
-vercel dev
-```
+## API キーの取得（無料）
+
+- **Gemini API**: https://aistudio.google.com/apikey
+- **Gmail OAuth**: https://console.cloud.google.com/apis/credentials → OAuth 2.0 Client ID 作成（Web application、Authorized JavaScript origins に GitHub Pages の URL を追加）

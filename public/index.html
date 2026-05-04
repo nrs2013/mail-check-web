@@ -6,59 +6,182 @@
 <title>Mail-Check! Web</title>
 <style>
   :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
     background: #1a1a1a; color: #d8d8d8;
     margin: 0; padding: 24px; font-size: 14px;
+    line-height: 1.6;
   }
-  h1 { color: #d4925a; margin: 0 0 12px; font-size: 22px; }
-  .sub { color: #999; margin-bottom: 24px; }
-  .status { background: #232323; border: 1px solid #353535; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-  button { background: #d4925a; color: #1a1a1a; border: 0; padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600; }
-  button:hover { background: #e8a570; }
-  pre { background: #0f0f0f; padding: 12px; border-radius: 6px; overflow: auto; font-size: 12px; }
-  ul { line-height: 1.8; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #353535; }
+  h1 { color: #d4925a; margin: 0; font-size: 22px; }
+  .sub { color: #999; font-size: 12px; margin-top: 4px; }
+  button.primary {
+    background: #d4925a; color: #1a1a1a; border: 0;
+    padding: 10px 20px; border-radius: 6px; font-size: 14px;
+    cursor: pointer; font-weight: 600; font-family: inherit;
+  }
+  button.primary:hover { background: #e8a570; }
+  button.ghost {
+    background: transparent; color: #999; border: 1px solid #353535;
+    padding: 7px 14px; border-radius: 6px; font-size: 12px;
+    cursor: pointer; font-family: inherit;
+  }
+  button.ghost:hover { color: #fff; border-color: #555; }
+  .panel {
+    background: #232323; border: 1px solid #353535;
+    padding: 20px; border-radius: 10px; margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; color: #d4925a; }
+  label { display: block; margin-bottom: 12px; font-size: 12px; color: #aaa; }
+  label small { display: block; color: #666; font-weight: normal; margin-top: 2px; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 9px 12px; background: #1a1a1a;
+    border: 1px solid #353535; color: #d8d8d8;
+    border-radius: 6px; font-size: 13px; font-family: inherit;
+    margin-top: 6px;
+  }
+  input:focus { outline: none; border-color: #d4925a; }
+  pre {
+    background: #0f0f0f; padding: 12px; border-radius: 6px;
+    overflow: auto; font-size: 12px; color: #aaa;
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 400px;
+  }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+  .badge.ok { background: rgba(92,154,111,0.2); color: #5C9A6F; }
+  .badge.ng { background: rgba(184,128,31,0.2); color: #d4925a; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .hint { font-size: 11px; color: #777; margin-top: 4px; }
+  a { color: #d4925a; }
 </style>
 </head>
 <body>
-  <h1>📧 Mail-Check! Web</h1>
-  <div class="sub">Gmail仕分けダッシュボード（独立Web版・Gemini AI）</div>
+  <header>
+    <div>
+      <h1>📧 Mail-Check! Web</h1>
+      <div class="sub">Gmail仕分けダッシュボード（GitHub Pages 版）</div>
+    </div>
+    <div id="status-area"></div>
+  </header>
 
-  <div class="status">
-    <strong>🚧 開発中（スケルトン）</strong><br>
-    現在はAPI動作確認のみ。これから順次実装：
-    <ul>
-      <li>Google でログイン（Gmail OAuth）</li>
-      <li>メール一覧・自分宛フィルタ</li>
-      <li>AI要約（Gemini無料枠で動く）</li>
-      <li>PIC UP! 案件サマリー</li>
-    </ul>
+  <div class="panel">
+    <h2>🔑 設定</h2>
+    <label>
+      Gemini API キー
+      <small>無料：<a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> で取得</small>
+      <input type="password" id="gemini-key" placeholder="AIzaSy..." autocomplete="off">
+    </label>
+    <label>
+      自分のメアド（仕分け基準）
+      <input type="text" id="user-email" placeholder="nomura@nrs1.jp">
+    </label>
+    <label>
+      自分の姓（「野村様」とかの判定用）
+      <input type="text" id="user-surname" placeholder="野村">
+    </label>
+    <div class="row">
+      <button class="primary" id="save-settings">保存</button>
+      <button class="ghost" id="clear-settings">クリア</button>
+    </div>
   </div>
 
-  <div class="status">
-    <strong>🤖 Gemini API テスト</strong><br>
-    <button id="test-ai">Gemini を呼んでみる</button>
-    <pre id="result">結果はここに表示</pre>
+  <div class="panel">
+    <h2>🤖 動作テスト</h2>
+    <p>設定を保存したあと、Gemini API が動くかテスト：</p>
+    <div class="row">
+      <button class="primary" id="test-gemini">Geminiにこんにちはと言わせる</button>
+    </div>
+    <pre id="test-result">結果はここに表示</pre>
+  </div>
+
+  <div class="panel">
+    <h2>🚧 開発状況</h2>
+    <ul style="margin: 0; padding-left: 20px;">
+      <li>✅ 設定UI（API キー、メアド、姓）</li>
+      <li>✅ Gemini API 動作確認</li>
+      <li>⏳ Google でログイン（Gmail OAuth）</li>
+      <li>⏳ メール一覧表示</li>
+      <li>⏳ 自分宛/To/Cc 仕分け</li>
+      <li>⏳ AI要約</li>
+      <li>⏳ PIC UP! 案件サマリー</li>
+    </ul>
+    <p class="hint">これからCowork版の機能を順次移植します。</p>
   </div>
 
 <script>
-document.getElementById("test-ai").addEventListener("click", async () => {
-  const out = document.getElementById("result");
-  out.textContent = "呼び出し中...";
-  const t0 = Date.now();
-  try {
-    const r = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: "日本語で「こんにちは」と一言だけ返してください。それ以外の文字は不要。" })
-    });
-    const data = await r.json();
-    const dt = Date.now() - t0;
-    out.textContent = "(" + dt + "ms)\n" + JSON.stringify(data, null, 2);
-  } catch (e) {
-    out.textContent = "Error: " + e.message;
+(() => {
+  const SK = "mailCheckWebSettings_v1";
+  function loadSettings() {
+    try { return JSON.parse(localStorage.getItem(SK) || "{}"); } catch(e) { return {}; }
   }
-});
+  function saveSettings(s) {
+    localStorage.setItem(SK, JSON.stringify(s));
+  }
+  function applyToInputs() {
+    const s = loadSettings();
+    document.getElementById("gemini-key").value = s.geminiKey || "";
+    document.getElementById("user-email").value = s.userEmail || "";
+    document.getElementById("user-surname").value = s.userSurname || "";
+    updateStatus();
+  }
+  function updateStatus() {
+    const s = loadSettings();
+    const area = document.getElementById("status-area");
+    const ok = !!(s.geminiKey && s.userEmail && s.userSurname);
+    area.innerHTML = ok
+      ? '<span class="badge ok">設定済み</span>'
+      : '<span class="badge ng">未設定</span>';
+  }
+
+  document.getElementById("save-settings").addEventListener("click", () => {
+    const s = {
+      geminiKey: document.getElementById("gemini-key").value.trim(),
+      userEmail: document.getElementById("user-email").value.trim(),
+      userSurname: document.getElementById("user-surname").value.trim(),
+    };
+    saveSettings(s);
+    updateStatus();
+    alert("設定を保存しました");
+  });
+
+  document.getElementById("clear-settings").addEventListener("click", () => {
+    if (!confirm("設定を全部クリアしますか？")) return;
+    localStorage.removeItem(SK);
+    applyToInputs();
+  });
+
+  document.getElementById("test-gemini").addEventListener("click", async () => {
+    const out = document.getElementById("test-result");
+    const s = loadSettings();
+    if (!s.geminiKey) { out.textContent = "まず Gemini API キーを設定してください"; return; }
+    out.textContent = "呼び出し中...";
+    const t0 = Date.now();
+    try {
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + encodeURIComponent(s.geminiKey);
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "日本語で「こんにちは」と一言だけ返してください。それ以外不要。" }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 100 }
+        })
+      });
+      const data = await r.json();
+      const dt = Date.now() - t0;
+      if (!r.ok) {
+        out.textContent = "APIエラー (" + r.status + "):\n" + JSON.stringify(data, null, 2);
+        return;
+      }
+      const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : "(空)";
+      out.textContent = "成功 (" + dt + "ms)\n応答: " + text + "\n\n生レスポンス:\n" + JSON.stringify(data, null, 2);
+    } catch (e) {
+      out.textContent = "Error: " + (e.message || e);
+    }
+  });
+
+  applyToInputs();
+})();
 </script>
 </body>
 </html>
