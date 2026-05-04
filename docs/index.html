@@ -1437,10 +1437,12 @@
   }
 
 
-  // 野村宛メール用：本文を get_thread で取得（最後のメッセージの本文を t._fullBody に格納）
+  // 野村宛メール用：スレッド内の野村あてメッセージの本文を取得して msg.id ごとにキャッシュ
   async function loadFullBodyForNomura(nomuraThreads) {
-    const targets = nomuraThreads.filter(t => t._fullBody === undefined).slice(0, 30);
+    const targets = nomuraThreads.filter(t => t._fullBodyByMsgId === undefined).slice(0, 30);
     if (targets.length === 0) return;
+    const re1 = buildSurnameRegex(true);
+    const re2 = buildSurnameStartRegex();
     const fetchOne = async (t) => {
       try {
         const result = await window.cowork.callMcpTool(GET_THREAD_TOOL, {
@@ -1448,10 +1450,22 @@
         });
         const data = parseResult(result);
         const messages = (data && data.messages) || [];
+        // スレッド内の「野村あて」メッセージの本文を全部キャッシュ
+        const map = {};
+        messages.forEach(m => {
+          const s = (m.snippet || "").replace(/<[^>]+>/g, "").trim();
+          if (re1.test(s) || re2.test(s)) {
+            map[m.id] = String(m.plaintextBody || m.body || m.snippet || "");
+          }
+        });
+        // フォールバック用に最後の本文も入れておく（野村あてが本文に見つからなかった時用）
         const lastMsg = messages[messages.length - 1] || {};
-        t._fullBody = String(lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "");
+        if (lastMsg.id && !map[lastMsg.id]) {
+          map[lastMsg.id] = String(lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "");
+        }
+        t._fullBodyByMsgId = map;
       } catch(e) {
-        t._fullBody = "";  // 取得失敗時は空にして再試行を防ぐ
+        t._fullBodyByMsgId = {};  // 取得失敗時は空にして再試行を防ぐ
       }
     };
     for (let i = 0; i < targets.length; i += 6) {
@@ -2744,8 +2758,18 @@
     if (kind === "ad") {
       summaryHtml = '';
     } else if (isLongSummary) {
-      // 野村宛：AI要約は使わず本文をそのまま全文表示
-      const fullBody = t._fullBody || last.plaintextBody || last.body || "";
+      // 野村宛：野村の名前が含まれる最新のメッセージの本文を表示
+      // （最新返信が別の人宛になってる場合でも、必ず野村あての本文を出す）
+      const re1NM = buildSurnameRegex(true);
+      const re2NM = buildSurnameStartRegex();
+      const nomuraMsgs = (msgs || []).filter(m => {
+        const s = (m.snippet || "").replace(/<[^>]+>/g, "").trim();
+        return re1NM.test(s) || re2NM.test(s);
+      });
+      // 一番新しい「野村あて」メッセージを採用、なければ last にフォールバック
+      const nomuraTarget = nomuraMsgs.length > 0 ? nomuraMsgs[nomuraMsgs.length - 1] : last;
+      const fullBody = (t._fullBodyByMsgId && t._fullBodyByMsgId[nomuraTarget.id])
+                    || nomuraTarget.plaintextBody || nomuraTarget.body || "";
       if (fullBody) {
         // HTMLタグを除去・改行は保持
         const cleaned = String(fullBody)
@@ -2763,7 +2787,7 @@
           .replace(/\n{3,}/g, "\n\n")
           .trim();
         summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">' + escapeHtml(cleaned) + '</div>';
-      } else if (t._fullBody === undefined) {
+      } else if (t._fullBodyByMsgId === undefined) {
         // 取得中
         summaryHtml = '<div class="summary placeholder">本文取得中…</div>';
       } else {
