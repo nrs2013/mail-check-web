@@ -1089,7 +1089,10 @@
     const headers = msg.payload ? msg.payload.headers || [] : [];
     const body = _extractBody(msg.payload || {});
     const atts = _extractAtts(msg.payload || {});
-    const dateStr = _hdr(headers, "Date") || (msg.internalDate ? new Date(Number(msg.internalDate)).toISOString() : null);
+    // 日付は ISO 形式で揃える（RFC形式だと文字列比較が壊れて lastMessageOf が誤動作する）
+    const dateStr = msg.internalDate
+      ? new Date(Number(msg.internalDate)).toISOString()
+      : (_hdr(headers, "Date") ? new Date(_hdr(headers, "Date")).toISOString() : null);
     return {
       id: msg.id,
       threadId: msg.threadId,
