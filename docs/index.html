@@ -2440,7 +2440,7 @@
       const data = parseResult(result);
       const messages = (data && data.messages) || [];
 
-      // 添付ファイル収集（全メッセージから）
+      // 添付ファイル収集（全メッセージから・messageId と attachmentId も保持）
       const allAtts = [];
       messages.forEach(msg => {
         const atts = msg.attachments || msg.attachment || msg.files || [];
@@ -2449,7 +2449,8 @@
             const name = a.filename || a.name || a.fileName || "(名前なし)";
             const size = a.size || a.fileSize || 0;
             const mime = a.mimeType || a.contentType || "";
-            allAtts.push({ name: decodeMimeWord(name), size, mime });
+            const attachmentId = a.attachmentId || a.id || null;
+            allAtts.push({ name: decodeMimeWord(name), size, mime, messageId: msg.id, attachmentId });
           });
         }
       });
@@ -2475,12 +2476,56 @@
         };
         attArea.innerHTML = '<div class="attachment-list">' +
           '<div class="label-row">📎 添付ファイル (' + allAtts.length + ')</div>' +
-          allAtts.map(a => '<div class="att-chip">' +
-            '<span>' + iconFor(a.mime) + '</span>' +
-            '<span class="att-name">' + escapeHtml(a.name) + '</span>' +
-            (a.size ? '<span class="att-size">' + fmtSize(a.size) + '</span>' : '') +
-          '</div>').join("") +
+          allAtts.map((a, i) => {
+            const downloadable = !!(a.messageId && a.attachmentId);
+            const styleAttr = downloadable ? ' style="cursor:pointer;"' : '';
+            const titleAttr = downloadable ? 'クリックでダウンロード' : '';
+            return '<div class="att-chip" data-idx="' + i + '"' + styleAttr + ' title="' + titleAttr + '">' +
+              '<span>' + iconFor(a.mime) + '</span>' +
+              '<span class="att-name">' + escapeHtml(a.name) + '</span>' +
+              (a.size ? '<span class="att-size">' + fmtSize(a.size) + '</span>' : '') +
+              (downloadable ? '<span style="margin-left:4px;color:var(--accent);font-size:11px;">⬇</span>' : '') +
+            '</div>';
+          }).join("") +
         '</div>';
+        // 添付チップに onclick を仕掛ける
+        const chips = attArea.querySelectorAll('.att-chip');
+        chips.forEach((chip, idx) => {
+          const att = allAtts[idx];
+          if (!att.messageId || !att.attachmentId) return;
+          chip.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const origHtml = chip.innerHTML;
+            chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:var(--accent);font-size:11px;">…</span>');
+            try {
+              const tok = JSON.parse(localStorage.getItem("mailCheckWebToken_v1") || "null");
+              if (!tok || !tok.token) throw new Error("未ログイン");
+              const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + att.messageId + "/attachments/" + att.attachmentId, {
+                headers: { Authorization: "Bearer " + tok.token }
+              });
+              if (!r.ok) throw new Error("取得失敗 " + r.status);
+              const d = await r.json();
+              // Gmail API の data は url-safe base64
+              const b64 = (d.data || "").replace(/-/g, "+").replace(/_/g, "/");
+              const bin = atob(b64);
+              const arr = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+              const blob = new Blob([arr], { type: att.mime || "application/octet-stream" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = att.name;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
+              chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#5C9A6F;font-size:11px;">✓</span>');
+            } catch(err) {
+              chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#d97766;font-size:11px;">✗</span>');
+              alert("ダウンロード失敗: " + err.message);
+            }
+          });
+        });
       }
 
       // 本文表示
