@@ -821,11 +821,11 @@
   _healOriginalSettings();
   // Token storage
   function _saveToken(token, expiresIn) {
-    sessionStorage.setItem(WEB_TOKEN_KEY, JSON.stringify({ token, exp: Date.now() + expiresIn * 1000 }));
+    localStorage.setItem(WEB_TOKEN_KEY, JSON.stringify({ token, exp: Date.now() + expiresIn * 1000 }));
   }
   function _restoreToken() {
     try {
-      const c = JSON.parse(sessionStorage.getItem(WEB_TOKEN_KEY) || "null");
+      const c = JSON.parse(localStorage.getItem(WEB_TOKEN_KEY) || "null");
       if (c && c.exp > Date.now() + 30000) { _accessToken = c.token; return true; }
     } catch(e) {}
     return false;
@@ -857,7 +857,7 @@
       google.accounts.oauth2.revoke(_accessToken, () => {});
     }
     _accessToken = null;
-    sessionStorage.removeItem(WEB_TOKEN_KEY);
+    localStorage.removeItem(WEB_TOKEN_KEY);
     _showLoginVeil();
   }
   function _showLoginVeil() {
@@ -870,6 +870,34 @@
     if (em) em.value = s.userEmail || "nomura0913@gmail.com";
     const sn = document.getElementById("login-surname");
     if (sn) sn.value = s.userSurname || "野村";
+    // === 既に設定済みなら3項目フォームを隠してワンクリックUIにする ===
+    const isReturning = !!(s.claudeKey && s.userEmail && s.userSurname);
+    document.querySelectorAll("#login-veil .login-card label").forEach(el => {
+      el.style.display = isReturning ? "none" : "";
+    });
+    const lead = document.querySelector("#login-veil .login-card .lead");
+    if (lead) {
+      lead.textContent = isReturning
+        ? "おかえりなさい！「Googleでログイン」を押すだけで再開できます。"
+        : "Gmail と Claude AI を使ってメールを仕分けます。最初に2つのキーが必要です。";
+    }
+    const testBtn = document.getElementById("login-test-claude");
+    if (testBtn) testBtn.style.display = isReturning ? "none" : "";
+    // 設定変更したい時用の「設定を変更」リンクを追加（無ければ）
+    if (isReturning && !document.getElementById("login-edit-link")) {
+      const card = document.querySelector("#login-veil .login-card");
+      const link = document.createElement("button");
+      link.id = "login-edit-link";
+      link.textContent = "設定を変更する";
+      link.style.cssText = "background:transparent;color:var(--text-3);border:0;font-size:11px;cursor:pointer;font-family:inherit;margin-top:10px;padding:0;text-decoration:underline;";
+      link.addEventListener("click", () => {
+        document.querySelectorAll("#login-veil .login-card label").forEach(el => el.style.display = "");
+        if (testBtn) testBtn.style.display = "";
+        link.remove();
+        if (lead) lead.textContent = "設定を変更してから「Googleでログイン」してください。";
+      });
+      card.appendChild(link);
+    }
   }
   function _hideLoginVeil() {
     const v = document.getElementById("login-veil");
@@ -883,7 +911,7 @@
       headers: { Authorization: "Bearer " + _accessToken }
     });
     if (r.status === 401) {
-      _accessToken = null; sessionStorage.removeItem(WEB_TOKEN_KEY);
+      _accessToken = null; localStorage.removeItem(WEB_TOKEN_KEY);
       _showLoginVeil();
       throw new Error("Gmail認証期限切れ");
     }
