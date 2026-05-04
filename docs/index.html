@@ -3165,7 +3165,7 @@
           .replace(/&#39;/g, "'")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
-        summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">' + escapeHtml(cleaned) + '</div>';
+        summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:100px;overflow:hidden;position:relative;mask-image:linear-gradient(to bottom, #000 70%, transparent);-webkit-mask-image:linear-gradient(to bottom, #000 70%, transparent);">' + escapeHtml(cleaned) + '</div>';
       } else if (t._fullBodyByMsgId === undefined) {
         // 取得中
         summaryHtml = '<div class="summary placeholder">本文取得中…</div>';
