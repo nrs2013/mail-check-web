@@ -1,0 +1,17 @@
+{
+  "name": "mail-check-web",
+  "version": "0.1.0",
+  "description": "Mail-Check! Web版 - Gmail仕分けダッシュボード（独立Webアプリ）",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site - no build needed'",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
