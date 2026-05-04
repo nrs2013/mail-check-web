@@ -3219,16 +3219,29 @@
         seen_.add(key);
         return true;
       });
-      // 1件だけ表示（最新）+ 残りは「+他N件」のみ
-      const primary = dedupedLinks[0];
-      const remaining = dedupedLinks.length - 1;
-      fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' +
-        '<a class="file-link" href="' + escapeHtml(primary.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(primary.label) + ' でダウンロード（' + escapeHtml(primary.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
-          '<span class="fl-icon">' + primary.icon + '</span>' +
-          '<span class="fl-text">' + escapeHtml(primary.label) + '</span>' +
-          '<span style="opacity:0.6;font-size:10px;">↗</span>' +
-        '</a>' +
-        (remaining > 0 ? '<span style="font-size:10px;color:var(--text-3);" title="' + dedupedLinks.slice(1).map(fl => escapeHtml(fl.url)).join("\n") + '">+他' + remaining + '件</span>' : '') +
+      // 同じラベルが複数あれば番号付け（ギガファイル①、②、③）
+      const labelCounts = {};
+      dedupedLinks.forEach(fl => { labelCounts[fl.label] = (labelCounts[fl.label] || 0) + 1; });
+      const labelIdx = {};
+      const circled = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩"];
+      fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;">' +
+        dedupedLinks.map(fl => {
+          const isMulti = labelCounts[fl.label] > 1;
+          if (isMulti) {
+            labelIdx[fl.label] = (labelIdx[fl.label] || 0) + 1;
+            const num = circled[labelIdx[fl.label] - 1] || ("(" + labelIdx[fl.label] + ")");
+            return '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
+              '<span class="fl-icon">' + fl.icon + '</span>' +
+              '<span class="fl-text">' + escapeHtml(fl.label) + num + '</span>' +
+              '<span style="opacity:0.6;font-size:10px;">↗</span>' +
+            '</a>';
+          }
+          return '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
+            '<span class="fl-icon">' + fl.icon + '</span>' +
+            '<span class="fl-text">' + escapeHtml(fl.label) + '</span>' +
+            '<span style="opacity:0.6;font-size:10px;">↗</span>' +
+          '</a>';
+        }).join("") +
       '</div>';
     }
 
