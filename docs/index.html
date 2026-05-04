@@ -1125,7 +1125,7 @@
         } catch(e) { console.warn("thread fetch fail:", id, e); }
       }
     }
-    await Promise.all([0,1,2,3,4,5,6,7].map(() => worker()));
+    await Promise.all([0,1,2,3,4,5,6,7,8,9,10,11].map(() => worker()));
     threads.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
     // 本体は data.nextPageToken を読みに行くので、両方の名前で返す
     return { threads, nextPageToken: list.nextPageToken || null, nextToken: list.nextPageToken || null };
@@ -1347,7 +1347,7 @@
     applySettingsToUI();
   }
 
-  const INITIAL_PAGES = 2;
+  const INITIAL_PAGES = 4;
   const MORE_PAGES = 4;
 
   let currentFilter = localStorage.getItem(STORE_KEY) || "unread";
@@ -2350,7 +2350,7 @@
     let allThreads = [];
     let token = pageToken || null;
     for (let p = 0; p < pages; p++) {
-      const args = { query: query, pageSize: 50 };
+      const args = { query: query, pageSize: 100 };
       if (token) args.pageToken = token;
       try {
         const rawResult = await window.cowork.callMcpTool(SEARCH_TOOL, args);
