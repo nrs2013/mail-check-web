@@ -2399,9 +2399,15 @@
       .join("\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
-    return escapeHtml(body);
+    // URL を <a> リンクに変換（escapeHtml 後に処理）
+    const escaped = escapeHtml(body);
+    return escaped.replace(/(https?:\/\/[^\s<>"\u3000]+)/g, (url) => {
+      const m = url.match(/^(.*?)([.,;:!?'"」）)】>]+)$/);
+      const cleanUrl = m ? m[1] : url;
+      const trail = m ? m[2] : "";
+      return '<a href="' + cleanUrl + '" target="_blank" rel="noopener" style="color:#8ab8ff;text-decoration:underline;word-break:break-all;">' + cleanUrl + '</a>' + trail;
+    });
   }
-
   // 受信者リスト：5名超の場合は折りたたみ
   function renderRecipients(label, list) {
     if (!list || list.length === 0) return "";
