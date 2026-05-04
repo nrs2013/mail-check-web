@@ -1926,6 +1926,21 @@
     "sride.co.jp": "S.RIDE", "microsoftstore.microsoft.com": "Microsoft",
     "acestudio.ai": "ACE Studio", "aejuice.com": "AEJuice", "cloudflare.com": "Cloudflare", "adobe.com": "Adobe",
     "dropboxmail.com": "Dropbox",
+    // 通知・領収書・welcome系（Mail-Check! では非表示にしたい）
+    "aqua-voice.com": "Aqua Voice", "stripe.com": "Stripe", "withlink.com": "Link",
+    "google.com": "Google", "noreply.google.com": "Google",
+    "accounts.google.com": "Google", "calendar-server.bounces.google.com": "Google カレンダー",
+    "calendar-notification.google.com": "Google カレンダー",
+    "drive.google.com": "Drive", "docs.google.com": "Docs", "youtube.com": "YouTube",
+    "github.com": "GitHub", "noreply.github.com": "GitHub",
+    "supabase.io": "Supabase", "railway.app": "Railway",
+    "vercel.com": "Vercel", "netlify.com": "Netlify",
+    "claude.ai": "Claude", "anthropic.com": "Anthropic",
+    "insta360.com": "Insta360", "instagram.com": "Instagram",
+    "discord.com": "Discord", "slack.com": "Slack",
+    "linkedin.com": "LinkedIn", "behance.net": "Behance",
+    "stripeinvoice.com": "Stripe", "atlassian.com": "Atlassian",
+    "notion.so": "Notion", "figma.com": "Figma",
   };
 
   // 仕事関係のドメイン → 組織名（広告でないメールにも適用）
@@ -2162,7 +2177,7 @@
       const last = (t.messages || [])[(t.messages || []).length - 1] || {};
       return { idx: i, from: last.sender, subject: last.subject, snippet: (last.snippet || "").slice(0, 200) };
     });
-    const prompt = "各メールを次の3つに分類してください。判定は厳しめに、迷ったら ad にしてください：\n\n- \"reply\": 人から自分に向けて送られた仕事の依頼/相談/確認/図面・資料のやり取りで返信が必要なもの\n- \"info\": 人から送られた情報共有、議事録、進捗報告（返信不要）\n- \"ad\": 以下すべて（強めに分類すること）：\n  - 広告・ニュースレター・キャンペーン\n  - EC配送通知（Amazon、楽天、注文確認、発送通知）\n  - SNS通知（Pinterest、Instagram、X、LINE等）\n  - サービス通知（領収書、請求書、決済、支払い、サブスク更新）\n  - 新規登録/ようこそメール（welcome、Hi、サインアップ確認、認証コード）\n  - カレンダー通知（Google カレンダー、リマインダー）\n  - クラウドサービス通知（Drive アクティビティ、Dropbox 共有）\n  - 自動配信メール（noreply、no-reply、info@、notification@）\n  - 不在通知、自動返信\n\n人間が手書きで送ったものだけ reply / info にし、それ以外は ad にする。\n\nJSON配列のみで返答（説明文不要）:\n[{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
+    const prompt = "各メールを3つに分類してください。コンサート演出家のメールチェックなので、仕事関係を見逃したくない、広告だけ確実に隠したい：\n\n- \"reply\": 人(コンサート関係者・スタッフ・取引先)から仕事の依頼・相談・確認・資料のやり取りが来ていて返信が必要\n- \"info\": 人からの情報共有・議事録・進捗報告（返信は急がない）\n- \"ad\": 以下に該当するもの ONLY：\n  - 明らかな広告・キャンペーン・ニュースレター\n  - EC配送通知（Amazon、楽天、注文確認、発送通知）\n  - SNS通知（Pinterest、Instagram、X等）\n  - 自動領収書・請求書・サブスク更新通知\n  - サインアップ確認・認証コード・welcome系（Hi xxx、welcome to）\n  - カレンダー通知（Google カレンダー、リマインダー、休日通知）\n  - クラウドサービス通知（Drive アクティビティ、共有フォルダ通知）\n  - 自動配信（送信者が noreply/no-reply/info@/notification@/alerts@/system@）\n\n判断ルール：\n- 迷ったら info にする（仕事メールを見逃さないため）\n- 人が手書きで書いたものは絶対に ad にしない\n- 公演・舞台・コンサート・撮影・スケジュール・図面・見積・スタッフに関するメールは絶対 ad にしない\n\nJSON配列のみで返答（説明文不要）:\n[{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
     try {
       const result = await window.cowork.askClaude(prompt, items);
       let text = result;
