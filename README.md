@@ -1,37 +1,28 @@
-# Mail-Check! Web版
+# Mail-Check! Web版（Gemini版）
 
 Gmail を使ったメール仕分けダッシュボード（独立Webアプリ）。
 Cowork 不要、ブラウザだけで動く。
 
-- **本番URL**: （Vercel デプロイ後に追記）
 - **対象**: のむさん（nomura@nrs1.jp）専用
-- **技術**: Node.js + Express + Vanilla JS フロントエンド
+- **AI**: Google Gemini 2.0 Flash（**無料枠 1日1500回**）
 - **デプロイ**: Vercel（無料）
 
-## 機能（Cowork版から移植）
+## 必要な準備
 
-- 野村宛・自社・To/Cc メール仕分け
-- AI要約（Claude API 経由）
-- PIC UP! 案件サマリー
-- Dropbox/Google Drive リンク抽出
+1. **Gemini API キー**（無料・3分）
+   - https://aistudio.google.com/apikey で取得
+2. **Vercel アカウント**（無料・count-down-studio と同じものでOK）
 
-## ローカル起動
+## デプロイ手順
+
+1. Vercel で GitHub リポジトリ `nrs2013/mail-check-web` を Import
+2. 環境変数 `GEMINI_API_KEY` を設定
+3. Deploy
+
+## ローカル開発
 
 ```bash
 npm install
 cp .env.example .env  # API キーを記入
-npm run dev
+vercel dev
 ```
-
-## 環境変数
-
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Gmail OAuth
-- `ANTHROPIC_API_KEY` — Claude API
-- `SESSION_SECRET` — セッション暗号化用ランダム文字列
-
-## デプロイ手順（Vercel）
-
-1. Vercel ダッシュボードで「Import Project」
-2. このリポジトリを選択
-3. 環境変数を Vercel に設定
-4. Deploy
