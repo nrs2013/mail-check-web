@@ -1109,7 +1109,8 @@
   async function _gmailSearch(args) {
     const params = new URLSearchParams();
     params.set("q", args.query || "");
-    params.set("maxResults", String(args.maxResults || 50));
+    // 本体コードは pageSize を渡す。互換のため maxResults も受ける
+    params.set("maxResults", String(args.pageSize || args.maxResults || 50));
     if (args.pageToken) params.set("pageToken", args.pageToken);
     const list = await _gmailFetch("threads?" + params.toString());
     const ids = (list.threads || []).map(t => t.id);
@@ -1126,7 +1127,8 @@
     }
     await Promise.all([0,1,2,3,4,5,6,7].map(() => worker()));
     threads.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-    return { threads, nextToken: list.nextPageToken || null };
+    // 本体は data.nextPageToken を読みに行くので、両方の名前で返す
+    return { threads, nextPageToken: list.nextPageToken || null, nextToken: list.nextPageToken || null };
   }
   async function _gmailGetThread(args) {
     const t = await _gmailFetch("threads/" + args.threadId + "?format=full");
