@@ -3219,13 +3219,17 @@
         seen_.add(key);
         return true;
       });
-      fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;">' + dedupedLinks.map(fl =>
-        '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
-          '<span class="fl-icon">' + fl.icon + '</span>' +
-          '<span class="fl-text">' + escapeHtml(fl.label) + '</span>' +
+      // 1件だけ表示（最新）+ 残りは「+他N件」のみ
+      const primary = dedupedLinks[0];
+      const remaining = dedupedLinks.length - 1;
+      fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' +
+        '<a class="file-link" href="' + escapeHtml(primary.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(primary.label) + ' でダウンロード（' + escapeHtml(primary.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
+          '<span class="fl-icon">' + primary.icon + '</span>' +
+          '<span class="fl-text">' + escapeHtml(primary.label) + '</span>' +
           '<span style="opacity:0.6;font-size:10px;">↗</span>' +
-        '</a>'
-      ).join("") + '</div>';
+        '</a>' +
+        (remaining > 0 ? '<span style="font-size:10px;color:var(--text-3);" title="' + dedupedLinks.slice(1).map(fl => escapeHtml(fl.url)).join("\n") + '">+他' + remaining + '件</span>' : '') +
+      '</div>';
     }
 
     return '<div class="item kind-' + kind + '" data-thread-idx="' + idx + '"' + hidden + '>' +
