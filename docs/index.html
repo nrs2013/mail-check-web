@@ -10,62 +10,132 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
     background: #1a1a1a; color: #d8d8d8;
-    margin: 0; padding: 24px; font-size: 14px;
-    line-height: 1.6;
+    margin: 0; padding: 16px; font-size: 13px;
+    line-height: 1.55;
   }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #353535; }
-  h1 { color: #d4925a; margin: 0; font-size: 22px; }
-  .sub { color: #999; font-size: 12px; margin-top: 4px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #353535; gap: 12px; flex-wrap: wrap; }
+  h1 { color: #d4925a; margin: 0; font-size: 20px; }
+  .sub { color: #999; font-size: 11px; margin-top: 2px; }
   button.primary {
     background: #d4925a; color: #1a1a1a; border: 0;
-    padding: 10px 20px; border-radius: 6px; font-size: 14px;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px;
     cursor: pointer; font-weight: 600; font-family: inherit;
   }
   button.primary:hover { background: #e8a570; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
   button.ghost {
     background: transparent; color: #999; border: 1px solid #353535;
-    padding: 7px 14px; border-radius: 6px; font-size: 12px;
+    padding: 6px 12px; border-radius: 6px; font-size: 12px;
     cursor: pointer; font-family: inherit;
   }
   button.ghost:hover { color: #fff; border-color: #555; }
+  button.tiny {
+    background: transparent; color: #888; border: 1px solid #444;
+    padding: 3px 8px; border-radius: 4px; font-size: 11px;
+    cursor: pointer; font-family: inherit;
+  }
+  button.tiny:hover { color: #fff; border-color: #d4925a; }
   .panel {
     background: #232323; border: 1px solid #353535;
-    padding: 20px; border-radius: 10px; margin-bottom: 16px;
+    padding: 16px; border-radius: 10px; margin-bottom: 12px;
   }
-  .panel h2 { font-size: 15px; margin: 0 0 12px; color: #d4925a; }
-  label { display: block; margin-bottom: 12px; font-size: 12px; color: #aaa; }
+  .panel h2 { font-size: 14px; margin: 0 0 10px; color: #d4925a; }
+  label { display: block; margin-bottom: 10px; font-size: 12px; color: #aaa; }
   label small { display: block; color: #666; font-weight: normal; margin-top: 2px; }
-  input[type="text"], input[type="password"] {
-    width: 100%; padding: 9px 12px; background: #1a1a1a;
+  input[type="text"], input[type="password"], textarea {
+    width: 100%; padding: 7px 10px; background: #1a1a1a;
     border: 1px solid #353535; color: #d8d8d8;
-    border-radius: 6px; font-size: 13px; font-family: inherit;
-    margin-top: 6px;
+    border-radius: 6px; font-size: 12px; font-family: inherit;
+    margin-top: 4px;
   }
-  input:focus { outline: none; border-color: #d4925a; }
+  input:focus, textarea:focus { outline: none; border-color: #d4925a; }
   pre {
-    background: #0f0f0f; padding: 12px; border-radius: 6px;
-    overflow: auto; font-size: 12px; color: #aaa;
+    background: #0f0f0f; padding: 10px; border-radius: 6px;
+    overflow: auto; font-size: 11px; color: #aaa;
     white-space: pre-wrap; word-break: break-all;
-    max-height: 400px;
+    max-height: 300px;
   }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px; }
   .badge.ok { background: rgba(92,154,111,0.2); color: #5C9A6F; }
   .badge.ng { background: rgba(184,128,31,0.2); color: #d4925a; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .hint { font-size: 11px; color: #777; margin-top: 4px; }
   a { color: #d4925a; }
+  details > summary { cursor: pointer; color: #888; font-size: 12px; }
+  details > summary:hover { color: #d4925a; }
+
+  /* dashboard layout */
+  .dash { display: grid; grid-template-columns: 280px 1fr; gap: 12px; }
+  @media (max-width: 900px) { .dash { grid-template-columns: 1fr; } }
+
+  /* columns */
+  .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px; }
+  @media (max-width: 1100px) { .cols { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+  .col {
+    background: #1f1f1f; border: 1px solid #353535;
+    border-radius: 8px; padding: 8px; min-height: 200px;
+  }
+  .col.nomura {
+    background: #2a2418; border-color: #6a5530;
+  }
+  .col h3 {
+    margin: 0 0 8px; font-size: 12px; color: #aaa;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .col.nomura h3 { color: #d4925a; }
+  .col h3 .count { background: #353535; padding: 2px 7px; border-radius: 999px; font-size: 10px; color: #ccc; }
+  .col.nomura h3 .count { background: #d4925a; color: #1a1a1a; }
+
+  .mail {
+    background: #161616; border: 1px solid #2a2a2a;
+    border-radius: 6px; padding: 8px;
+    margin-bottom: 6px; font-size: 11px;
+    cursor: pointer;
+  }
+  .mail:hover { border-color: #555; }
+  .mail .from { color: #d4925a; font-weight: 600; word-break: break-all; }
+  .mail .subj { color: #ddd; margin-top: 2px; word-break: break-all; }
+  .mail .snip { color: #888; margin-top: 3px; font-size: 10px; }
+  .mail .summary {
+    background: #1a1f1a; border-left: 2px solid #5C9A6F;
+    padding: 5px 7px; margin-top: 5px;
+    color: #c5e0c8; font-size: 10px; border-radius: 0 4px 4px 0;
+  }
+  .mail .links { margin-top: 4px; }
+  .mail .links a { display: inline-block; margin-right: 4px; padding: 1px 6px; background: #2a2a2a; border-radius: 3px; font-size: 10px; text-decoration: none; }
+  .mail .links a:hover { background: #d4925a; color: #1a1a1a; }
+  .empty { color: #555; font-size: 11px; text-align: center; padding: 20px 0; }
+
+  .pic-section {
+    background: #1f1f1f; border: 1px solid #353535;
+    border-radius: 8px; padding: 10px; margin-bottom: 8px;
+  }
+  .pic-section h4 { margin: 0 0 6px; font-size: 12px; color: #d4925a; display: flex; justify-content: space-between; align-items: center; }
+  .pic-section .hits { color: #5C9A6F; font-size: 10px; }
+  .pic-section .pic-summary { color: #c5e0c8; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+  .pic-section .pic-keyword { font-size: 10px; color: #777; margin-bottom: 4px; }
+  .pic-add-row { display: flex; gap: 4px; margin-bottom: 8px; }
+  .pic-add-row input { flex: 1; margin: 0; }
+  .case-actions { display: flex; gap: 4px; }
 </style>
 </head>
 <body>
   <header>
     <div>
       <h1>📧 Mail-Check! Web</h1>
-      <div class="sub">Gmail仕分けダッシュボード（GitHub Pages 版・Claude AI）</div>
+      <div class="sub">Gmail仕分けダッシュボード — Claude Haiku 4.5</div>
     </div>
-    <div id="status-area"></div>
+    <div class="row">
+      <span id="status-area"></span>
+      <button class="ghost" id="open-settings">⚙️ 設定</button>
+      <button class="primary" id="login-btn">Googleでログイン</button>
+      <button class="primary" id="reload-btn" style="display:none;">↻ 更新</button>
+    </div>
   </header>
 
-  <div class="panel">
+  <!-- ========= 設定パネル ========= -->
+  <div class="panel" id="settings-panel">
     <h2>🔑 設定</h2>
     <label>
       Claude API キー
@@ -74,44 +144,83 @@
     </label>
     <label>
       自分のメアド（仕分け基準）
-      <input type="text" id="user-email" placeholder="nomura@nrs1.jp">
+      <small>To/Cc 判定に使う Gmail アドレス</small>
+      <input type="text" id="user-email" placeholder="nomura0913@gmail.com">
     </label>
     <label>
       自分の姓（「野村様」とかの判定用）
       <input type="text" id="user-surname" placeholder="野村">
     </label>
+    <label>
+      検索対象期間（日数）
+      <input type="text" id="user-days" placeholder="10">
+    </label>
     <div class="row">
       <button class="primary" id="save-settings">保存</button>
       <button class="ghost" id="clear-settings">クリア</button>
+      <button class="ghost" id="test-ai">Claude疎通テスト</button>
+      <button class="ghost" id="hide-settings">閉じる</button>
+    </div>
+    <pre id="test-result" style="display:none; margin-top:10px;"></pre>
+  </div>
+
+  <!-- ========= ダッシュボード本体 ========= -->
+  <div class="dash" id="dash" style="display:none;">
+    <!-- 左：PIC UP! -->
+    <div>
+      <div class="panel" style="margin: 0;">
+        <h2>📌 PIC UP!</h2>
+        <div class="pic-add-row">
+          <input type="text" id="case-input" placeholder="案件キーワード（例：地球防衛部）">
+          <button class="primary" id="case-add">＋</button>
+        </div>
+        <div id="case-list"></div>
+      </div>
+    </div>
+
+    <!-- 右：4列ダッシュボード -->
+    <div>
+      <div id="status-bar" style="font-size:11px; color:#888; margin-bottom:8px;"></div>
+      <div class="cols">
+        <div class="col nomura">
+          <h3><span>★ 野村宛</span><span class="count" id="cnt-nomura">0</span></h3>
+          <div id="col-nomura"></div>
+        </div>
+        <div class="col">
+          <h3><span>To: 自分</span><span class="count" id="cnt-to">0</span></h3>
+          <div id="col-to"></div>
+        </div>
+        <div class="col">
+          <h3><span>Cc: 自分</span><span class="count" id="cnt-cc">0</span></h3>
+          <div id="col-cc"></div>
+        </div>
+        <div class="col">
+          <h3><span>その他</span><span class="count" id="cnt-other">0</span></h3>
+          <div id="col-other"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="panel">
-    <h2>🤖 動作テスト</h2>
-    <p>設定を保存したあと、Claude API が動くかテスト：</p>
-    <div class="row">
-      <button class="primary" id="test-ai">Claudeにこんにちはと言わせる</button>
-    </div>
-    <pre id="test-result">結果はここに表示</pre>
-  </div>
-
-  <div class="panel">
-    <h2>🚧 開発状況</h2>
-    <ul style="margin: 0; padding-left: 20px;">
-      <li>✅ 設定UI（API キー、メアド、姓）</li>
-      <li>✅ Claude API 動作確認</li>
-      <li>⏳ Google でログイン（Gmail OAuth）</li>
-      <li>⏳ メール一覧表示</li>
-      <li>⏳ 自分宛/To/Cc 仕分け</li>
-      <li>⏳ AI要約（Claude Haiku 4.5）</li>
-      <li>⏳ PIC UP! 案件サマリー</li>
-    </ul>
-    <p class="hint">これからCowork版の機能を順次移植します。</p>
-  </div>
-
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 (() => {
+  // ============== 定数 ==============
+  const OAUTH_CLIENT_ID = "945690023094-gvbhs56b90onlr4g55i4ose17sk0kdr6.apps.googleusercontent.com";
+  const SCOPES = "https://www.googleapis.com/auth/gmail.readonly";
   const SK = "mailCheckWebSettings_v1";
+  const TOKEN_KEY = "mailCheckWebToken_v1";
+  const CASES_KEY = "mailCheckWebCases_v1";
+  const KIND_CACHE_KEY = "mailCheckWebKindCache_v1";
+
+  // ============== state ==============
+  let accessToken = null;
+  let tokenClient = null;
+  let messages = [];
+  let cases = []; // [{name, summary, hits, ts}]
+  let busy = false;
+
+  // ============== settings ==============
   function loadSettings() {
     try { return JSON.parse(localStorage.getItem(SK) || "{}"); } catch(e) { return {}; }
   }
@@ -119,71 +228,505 @@
   function applyToInputs() {
     const s = loadSettings();
     document.getElementById("claude-key").value = s.claudeKey || "";
-    document.getElementById("user-email").value = s.userEmail || "";
-    document.getElementById("user-surname").value = s.userSurname || "";
+    document.getElementById("user-email").value = s.userEmail || "nomura0913@gmail.com";
+    document.getElementById("user-surname").value = s.userSurname || "野村";
+    document.getElementById("user-days").value = s.userDays || "10";
     updateStatus();
   }
   function updateStatus() {
     const s = loadSettings();
     const area = document.getElementById("status-area");
     const ok = !!(s.claudeKey && s.userEmail && s.userSurname);
-    area.innerHTML = ok
-      ? '<span class="badge ok">設定済み</span>'
-      : '<span class="badge ng">未設定</span>';
+    area.innerHTML = ok ? '<span class="badge ok">設定済</span>' : '<span class="badge ng">未設定</span>';
   }
 
+  // ============== Google OAuth ==============
+  function initOAuth() {
+    if (typeof google === "undefined" || !google.accounts) {
+      setTimeout(initOAuth, 200);
+      return;
+    }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: OAUTH_CLIENT_ID,
+      scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) { alert("ログインエラー: " + resp.error); return; }
+        accessToken = resp.access_token;
+        const expiresAt = Date.now() + (resp.expires_in * 1000);
+        sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token: accessToken, exp: expiresAt }));
+        onLogin();
+      },
+    });
+    // restore from session
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || "null");
+      if (cached && cached.exp > Date.now() + 30000) {
+        accessToken = cached.token;
+        onLogin();
+      }
+    } catch(e) {}
+  }
+
+  function login() {
+    if (!tokenClient) { alert("Google認証ライブラリがまだ準備できていません。少し待って再試行してください。"); return; }
+    tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+  }
+
+  function logout() {
+    if (accessToken && google.accounts.oauth2.revoke) {
+      google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    accessToken = null;
+    sessionStorage.removeItem(TOKEN_KEY);
+    document.getElementById("login-btn").style.display = "";
+    document.getElementById("reload-btn").style.display = "none";
+    document.getElementById("dash").style.display = "none";
+  }
+
+  function onLogin() {
+    document.getElementById("login-btn").textContent = "ログアウト";
+    document.getElementById("login-btn").onclick = logout;
+    document.getElementById("reload-btn").style.display = "";
+    document.getElementById("dash").style.display = "";
+    document.getElementById("settings-panel").style.display = "none";
+    fetchAndRender();
+  }
+
+  // ============== Gmail API ==============
+  async function gmailGet(path) {
+    const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/" + path, {
+      headers: { "Authorization": "Bearer " + accessToken }
+    });
+    if (r.status === 401) {
+      accessToken = null; sessionStorage.removeItem(TOKEN_KEY);
+      throw new Error("トークンが期限切れです。再ログインしてください。");
+    }
+    if (!r.ok) {
+      const t = await r.text();
+      throw new Error("Gmail API " + r.status + ": " + t);
+    }
+    return r.json();
+  }
+
+  function buildQuery() {
+    const s = loadSettings();
+    const days = parseInt(s.userDays || "10", 10) || 10;
+    const d = new Date(Date.now() - days * 86400000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return "after:" + yyyy + "/" + mm + "/" + dd + " in:inbox -category:promotions -category:social";
+  }
+
+  async function fetchMessages() {
+    const q = buildQuery();
+    const list = await gmailGet("messages?q=" + encodeURIComponent(q) + "&maxResults=80");
+    if (!list.messages) return [];
+    setStatus("メッセージ取得中… 0/" + list.messages.length);
+    const out = [];
+    let done = 0;
+    // 並列5件ずつ
+    const queue = [...list.messages];
+    async function worker() {
+      while (queue.length) {
+        const m = queue.shift();
+        try {
+          const full = await gmailGet("messages/" + m.id + "?format=full");
+          out.push(parseMessage(full));
+        } catch (e) { console.warn(e); }
+        done++;
+        if (done % 5 === 0) setStatus("メッセージ取得中… " + done + "/" + list.messages.length);
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+    out.sort((a,b) => (b.dateMs||0) - (a.dateMs||0));
+    setStatus(out.length + "件 取得完了");
+    return out;
+  }
+
+  function header(headers, name) {
+    const h = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
+    return h ? h.value : "";
+  }
+
+  function decodeBody(part) {
+    if (!part) return "";
+    if (part.body && part.body.data) {
+      try {
+        const s = atob(part.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+        // utf-8 decode
+        return decodeURIComponent(escape(s));
+      } catch(e) { return ""; }
+    }
+    if (part.parts) {
+      // prefer text/plain
+      const plain = part.parts.find(p => p.mimeType === "text/plain");
+      if (plain) return decodeBody(plain);
+      const html = part.parts.find(p => p.mimeType === "text/html");
+      if (html) {
+        const raw = decodeBody(html);
+        return raw.replace(/<style[\s\S]*?<\/style>/gi, "")
+                  .replace(/<script[\s\S]*?<\/script>/gi, "")
+                  .replace(/<[^>]+>/g, " ")
+                  .replace(/&nbsp;/g, " ")
+                  .replace(/\s+/g, " ");
+      }
+      // first sub
+      for (const p of part.parts) {
+        const r = decodeBody(p);
+        if (r) return r;
+      }
+    }
+    return "";
+  }
+
+  function parseMessage(m) {
+    const headers = m.payload.headers || [];
+    const from = header(headers, "From");
+    const to = header(headers, "To");
+    const cc = header(headers, "Cc");
+    const subject = header(headers, "Subject");
+    const dateStr = header(headers, "Date");
+    const dateMs = dateStr ? new Date(dateStr).getTime() : (m.internalDate ? Number(m.internalDate) : 0);
+    const body = decodeBody(m.payload);
+    return {
+      id: m.id, threadId: m.threadId,
+      from, to, cc, subject, dateStr, dateMs,
+      snippet: m.snippet || "",
+      body: body || m.snippet || "",
+      labels: m.labelIds || []
+    };
+  }
+
+  // ============== 仕分けロジック ==============
+  function getMyEmail() {
+    const s = loadSettings();
+    return (s.userEmail || "").toLowerCase();
+  }
+  function getSurname() {
+    const s = loadSettings();
+    return s.userSurname || "野村";
+  }
+
+  function buildSurnameRegexStrict(surname) {
+    // 強：先頭から
+    const honor = "(様|さん|社長|部長|課長|チーフ|プロデューサー|PD|D|殿)";
+    return new RegExp("^[\\s　【\\[「『]*" + surname + honor, "u");
+  }
+
+  function startsWithSurname(text) {
+    if (!text) return false;
+    const re = buildSurnameRegexStrict(getSurname());
+    // テキストの先頭・各行の先頭を見る
+    const lines = text.split(/\r?\n|。/).slice(0, 5);
+    return lines.some(L => re.test(L.trim()));
+  }
+
+  function isToMe(toField) {
+    const me = getMyEmail();
+    if (!me) return false;
+    return (toField || "").toLowerCase().includes(me);
+  }
+  function isCcMe(ccField) {
+    const me = getMyEmail();
+    if (!me) return false;
+    return (ccField || "").toLowerCase().includes(me);
+  }
+
+  function classifyColumn(msg) {
+    // 野村宛優先：本文先頭が「野村様」など
+    if (startsWithSurname(msg.body) || startsWithSurname(msg.snippet)) return "nomura";
+    if (isToMe(msg.to)) return "to";
+    if (isCcMe(msg.cc)) return "cc";
+    return "other";
+  }
+
+  // ============== AI 分類・要約 ==============
+  function loadKindCache() {
+    try { return JSON.parse(localStorage.getItem(KIND_CACHE_KEY) || "{}"); } catch(e) { return {}; }
+  }
+  function saveKindCache(c) { localStorage.setItem(KIND_CACHE_KEY, JSON.stringify(c)); }
+
+  async function callClaude(prompt, opts = {}) {
+    const s = loadSettings();
+    if (!s.claudeKey) throw new Error("Claude APIキー未設定");
+    const body = {
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: opts.maxTokens || 1500,
+      messages: [{ role: "user", content: prompt }]
+    };
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": s.claudeKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error("Claude API " + r.status + ": " + JSON.stringify(data));
+    return data.content && data.content[0] ? data.content[0].text : "";
+  }
+
+  async function aiClassifyAndSummarize(targets) {
+    // targets: [{idx, from, subject, snippet}]
+    if (targets.length === 0) return [];
+    const cache = loadKindCache();
+    const todo = [];
+    const cached = {};
+    targets.forEach(t => {
+      const key = t.id;
+      if (cache[key]) cached[t.idx] = cache[key];
+      else todo.push(t);
+    });
+    if (todo.length === 0) return targets.map(t => cached[t.idx]);
+
+    // 30件ずつバッチ
+    const result = {};
+    for (let i = 0; i < todo.length; i += 25) {
+      const chunk = todo.slice(i, i + 25);
+      setStatus("AI仕分け中… " + (i+chunk.length) + "/" + todo.length);
+      const items = chunk.map(c => ({ idx: c.idx, from: c.from, subject: c.subject, snippet: (c.body||c.snippet||"").slice(0, 600) }));
+      const prompt = "あなたはコンサート演出家のメール仕分けアシスタントです。各メールについて以下を判定:\n" +
+        "- kind: \"reply\"(要返信、仕事の依頼/相談/確認/図面・資料のやり取り)/\"info\"(情報共有、FYI、議事録、進捗報告)/\"ad\"(広告/通知/ニュースレター/EC配送通知/SNS通知/キャンペーン)\n" +
+        "- summary: kind=\"reply\"または\"info\"のみ生成。日本語120〜180字でメール要点を要約。誰が・何を・どこで・いつ・どうしたいのか・締切や数字も含めて具体的に。kind=\"ad\"なら必ず空文字\"\"\n\n" +
+        "JSON配列のみ返答(説明文不要):\n" +
+        "[{\"idx\":0,\"kind\":\"reply\",\"summary\":\"...\"}]\n\n" +
+        "メール:\n" + JSON.stringify(items);
+      try {
+        const txt = await callClaude(prompt, { maxTokens: 4000 });
+        const m = txt.match(/\[[\s\S]*\]/);
+        if (m) {
+          const parsed = JSON.parse(m[0]);
+          parsed.forEach(p => {
+            const orig = chunk.find(c => c.idx === p.idx);
+            if (orig) {
+              const out = { kind: p.kind, summary: p.summary || "" };
+              cache[orig.id] = out;
+              result[p.idx] = out;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("AI batch failed:", e);
+      }
+    }
+    saveKindCache(cache);
+    return targets.map(t => result[t.idx] || cached[t.idx] || { kind: "info", summary: "" });
+  }
+
+  // ============== Dropbox/URL 抽出 ==============
+  function extractLinks(body) {
+    if (!body) return [];
+    const unwrapped = body.replace(/(https?:\/\/\S+)[\r\n]+(\S)/g, "$1$2");
+    const urls = unwrapped.match(/https?:\/\/[^\s<>"]+/g) || [];
+    const links = [];
+    urls.forEach(u => {
+      if (u.match(/dropbox\.com|drive\.google\.com|wetransfer|firestorage|gigafile|xgf\.nu/i)) {
+        const label = u.match(/dropbox/i) ? "📦 Dropbox" :
+                      u.match(/drive\.google/i) ? "📁 Drive" :
+                      u.match(/wetransfer/i) ? "📨 WeTransfer" :
+                      "🔗 ファイル";
+        links.push({ url: u, label });
+      }
+    });
+    return links.slice(0, 4);
+  }
+
+  // ============== 描画 ==============
+  function setStatus(s) { document.getElementById("status-bar").textContent = s; }
+
+  function escapeHtml(s) {
+    return String(s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+  }
+
+  function fromName(from) {
+    const m = (from||"").match(/^(.*?)\s*<.*>$/);
+    return m ? m[1].replace(/^["']|["']$/g, "") : (from||"").split("@")[0];
+  }
+
+  function renderMail(msg, ai) {
+    const links = extractLinks(msg.body);
+    const isAd = ai && ai.kind === "ad";
+    if (isAd) return "";
+    const summary = ai && ai.summary ? '<div class="summary">' + escapeHtml(ai.summary) + '</div>' : "";
+    const linksHtml = links.length ? '<div class="links">' + links.map(l => '<a href="' + escapeHtml(l.url) + '" target="_blank">' + l.label + '</a>').join("") + '</div>' : "";
+    const url = "https://mail.google.com/mail/u/0/#all/" + msg.threadId;
+    return '<div class="mail" onclick="window.open(\'' + url + '\', \'_blank\')">' +
+      '<div class="from">' + escapeHtml(fromName(msg.from)) + '</div>' +
+      '<div class="subj">' + escapeHtml(msg.subject) + '</div>' +
+      summary +
+      linksHtml +
+      '</div>';
+  }
+
+  function render(aiResults) {
+    const cols = { nomura: [], to: [], cc: [], other: [] };
+    messages.forEach((msg, i) => {
+      const col = classifyColumn(msg);
+      cols[col].push({ msg, ai: aiResults[i] });
+    });
+    Object.entries(cols).forEach(([k, arr]) => {
+      const html = arr.map(({msg, ai}) => renderMail(msg, ai)).filter(x => x).join("");
+      document.getElementById("col-" + k).innerHTML = html || '<div class="empty">（なし）</div>';
+      document.getElementById("cnt-" + k).textContent = arr.filter(({ai}) => !ai || ai.kind !== "ad").length;
+    });
+  }
+
+  async function fetchAndRender() {
+    if (busy) return; busy = true;
+    try {
+      messages = await fetchMessages();
+      messages.forEach((m, i) => m.idx = i);
+      // AI 分類
+      const aiArr = await aiClassifyAndSummarize(messages);
+      render(aiArr);
+      // 案件サマリー再計算
+      renderCases(messages, aiArr);
+      setStatus(messages.length + "件 / 広告: " + aiArr.filter(a => a.kind === "ad").length);
+    } catch(e) {
+      setStatus("エラー: " + e.message);
+      console.error(e);
+    } finally { busy = false; }
+  }
+
+  // ============== PIC UP! 案件 ==============
+  function loadCases() {
+    try { cases = JSON.parse(localStorage.getItem(CASES_KEY) || "[]"); } catch(e) { cases = []; }
+  }
+  function saveCases() { localStorage.setItem(CASES_KEY, JSON.stringify(cases)); }
+
+  function renderCaseList() {
+    const wrap = document.getElementById("case-list");
+    if (cases.length === 0) {
+      wrap.innerHTML = '<div class="empty">＋でキーワード追加</div>';
+      return;
+    }
+    wrap.innerHTML = cases.map((c, i) =>
+      '<div class="pic-section">' +
+        '<h4><span>' + escapeHtml(c.name) + '</span><span class="hits">' + (c.hits||0) + '件</span></h4>' +
+        '<div class="pic-keyword">' + (c.ts ? new Date(c.ts).toLocaleString("ja-JP") : "未取得") + '</div>' +
+        '<div class="pic-summary">' + escapeHtml(c.summary || "（更新ボタンで要約）") + '</div>' +
+        '<div class="case-actions" style="margin-top:6px;">' +
+          '<button class="tiny" data-act="up" data-i="' + i + '">↑</button>' +
+          '<button class="tiny" data-act="down" data-i="' + i + '">↓</button>' +
+          '<button class="tiny" data-act="refresh" data-i="' + i + '">🔄 要約</button>' +
+          '<button class="tiny" data-act="del" data-i="' + i + '">削除</button>' +
+        '</div>' +
+      '</div>'
+    ).join("");
+    wrap.querySelectorAll("button[data-act]").forEach(b => {
+      b.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const i = +b.dataset.i, act = b.dataset.act;
+        if (act === "up" && i > 0) { [cases[i-1], cases[i]] = [cases[i], cases[i-1]]; }
+        if (act === "down" && i < cases.length - 1) { [cases[i+1], cases[i]] = [cases[i], cases[i+1]]; }
+        if (act === "del") { if (confirm("削除？")) cases.splice(i, 1); }
+        if (act === "refresh") { await refreshCase(i); }
+        saveCases(); renderCaseList();
+      });
+    });
+  }
+
+  function findCaseHits(caseName) {
+    const kw = caseName.toLowerCase();
+    return messages.filter(m =>
+      (m.subject||"").toLowerCase().includes(kw) ||
+      (m.body||"").toLowerCase().includes(kw)
+    );
+  }
+
+  async function refreshCase(i) {
+    const c = cases[i];
+    const hits = findCaseHits(c.name);
+    c.hits = hits.length;
+    if (hits.length === 0) {
+      c.summary = "（該当メールなし）"; c.ts = Date.now();
+      return;
+    }
+    setStatus("案件「" + c.name + "」のAI要約中…");
+    const items = hits.slice(0, 8).map((m, idx) => ({
+      idx, from: m.from, subject: m.subject, date: new Date(m.dateMs||0).toLocaleDateString("ja-JP"),
+      body: (m.body||m.snippet||"").slice(0, 1500)
+    }));
+    const prompt = "あなたはコンサート演出家のアシスタント。案件「" + c.name + "」に関する以下のメールから現状を要約してください。\n" +
+      "・3〜6行・各行40〜80字・「誰が」「何を」「いつまでに」を必ず含める\n" +
+      "・最新の決まりごと/未決事項/締切を強調\n" +
+      "・冗長な前置きや挨拶不要、要点のみ\n\n" +
+      JSON.stringify(items);
+    try {
+      const txt = await callClaude(prompt, { maxTokens: 1200 });
+      c.summary = txt.trim();
+      c.ts = Date.now();
+    } catch(e) {
+      c.summary = "（要約失敗: " + e.message + "）";
+    }
+    setStatus("");
+  }
+
+  function renderCases(_msgs, _ai) {
+    cases.forEach(c => { c.hits = findCaseHits(c.name).length; });
+    saveCases();
+    renderCaseList();
+  }
+
+  document.getElementById("case-add").addEventListener("click", () => {
+    const inp = document.getElementById("case-input");
+    const name = inp.value.trim();
+    if (!name) return;
+    cases.unshift({ name, summary: "", hits: 0, ts: 0 });
+    saveCases(); inp.value = "";
+    renderCases();
+  });
+
+  // ============== 設定UI events ==============
   document.getElementById("save-settings").addEventListener("click", () => {
-    const s = {
+    saveSettings({
       claudeKey: document.getElementById("claude-key").value.trim(),
       userEmail: document.getElementById("user-email").value.trim(),
       userSurname: document.getElementById("user-surname").value.trim(),
-    };
-    saveSettings(s);
+      userDays: document.getElementById("user-days").value.trim() || "10",
+    });
     updateStatus();
-    alert("設定を保存しました");
+    alert("保存しました");
   });
-
   document.getElementById("clear-settings").addEventListener("click", () => {
-    if (!confirm("設定を全部クリアしますか？")) return;
-    localStorage.removeItem(SK);
-    applyToInputs();
+    if (!confirm("設定全部クリアする？")) return;
+    localStorage.removeItem(SK); applyToInputs();
   });
-
+  document.getElementById("hide-settings").addEventListener("click", () => {
+    document.getElementById("settings-panel").style.display = "none";
+  });
+  document.getElementById("open-settings").addEventListener("click", () => {
+    const p = document.getElementById("settings-panel");
+    p.style.display = p.style.display === "none" ? "" : "none";
+  });
   document.getElementById("test-ai").addEventListener("click", async () => {
     const out = document.getElementById("test-result");
-    const s = loadSettings();
-    if (!s.claudeKey) { out.textContent = "まず Claude API キーを設定してください"; return; }
-    out.textContent = "呼び出し中...";
-    const t0 = Date.now();
+    out.style.display = ""; out.textContent = "呼び出し中…";
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": s.claudeKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 100,
-          messages: [{ role: "user", content: "日本語で「こんにちは」と一言だけ返してください。それ以外不要。" }]
-        })
-      });
-      const data = await r.json();
-      const dt = Date.now() - t0;
-      if (!r.ok) {
-        out.textContent = "APIエラー (" + r.status + "):\n" + JSON.stringify(data, null, 2);
-        return;
-      }
-      const text = data && data.content && data.content[0] ? data.content[0].text : "(空)";
-      out.textContent = "成功 (" + dt + "ms)\n応答: " + text + "\n\n生レスポンス:\n" + JSON.stringify(data, null, 2);
-    } catch (e) {
-      out.textContent = "Error: " + (e.message || e);
-    }
+      const t0 = Date.now();
+      const txt = await callClaude("日本語で「こんにちは」と一言だけ。それ以外不要。", { maxTokens: 50 });
+      out.textContent = "成功 (" + (Date.now()-t0) + "ms): " + txt;
+    } catch(e) { out.textContent = "失敗: " + e.message; }
   });
+  document.getElementById("login-btn").addEventListener("click", login);
+  document.getElementById("reload-btn").addEventListener("click", fetchAndRender);
 
+  // ============== 初期化 ==============
   applyToInputs();
+  loadCases();
+  renderCaseList();
+  initOAuth();
+
+  // 初回はsettings開いておく
+  if (!loadSettings().claudeKey) {
+    document.getElementById("settings-panel").style.display = "";
+  } else {
+    document.getElementById("settings-panel").style.display = "none";
+  }
 })();
 </script>
 </body>
