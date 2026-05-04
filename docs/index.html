@@ -3092,12 +3092,14 @@
       }
     }
 
-    // ファイル共有リンク（Dropbox等）：完全URLキャッシュ優先、なければsnippetから（途切れる可能性あり）
-    let fileLinks;
-    if (fileLinksCache[t.id] !== undefined) {
-      fileLinks = fileLinksCache[t.id];
-    } else {
-      fileLinks = extractFileLinks(last.snippet || "");
+    // ファイル共有リンク（Dropbox等）：実添付がある場合は非表示（紛らわしいので）
+    let fileLinks = [];
+    if (!hasAtt) {  // 実添付がない場合のみ本文中のリンクを表示
+      if (fileLinksCache[t.id] !== undefined) {
+        fileLinks = fileLinksCache[t.id];
+      } else {
+        fileLinks = extractFileLinks(last.snippet || "");
+      }
     }
     let fileLinksHtml = '';
     if (fileLinks && fileLinks.length > 0) {
