@@ -2417,20 +2417,19 @@
     if (e.target.id === "modal-bg") closeModal();
   });
 
-  // 3つの返信ボタンに共通の Mail.app 起動処理を仕込む
+  // 3つの返信ボタン：<a href="mailto:..."> のネイティブ動作だけで Mail.app を起動
+  // （以前は setTimeout で window.open も呼んでいたが、二重発火で OS が混乱して
+  //  Mail.app が起動しないケースがあったので削除）
   ["mail-reply-sender", "mail-reply-all", "mail-forward"].forEach(id => {
     document.getElementById(id).addEventListener("click", (e) => {
       const toast = document.getElementById("toast-area");
-      // フォールバック起動
-      setTimeout(() => {
-        try { window.open(e.currentTarget.href, "_self"); } catch(err) {}
-      }, 100);
       const labelMap = {
         "mail-reply-sender": "送信者へ返信",
         "mail-reply-all": "全員に返信",
         "mail-forward": "転送"
       };
-      toast.innerHTML = '<div class="toast">✉️ Mail.appを起動中（' + labelMap[id] + '）…開かない場合は📋でアドレスをコピーしてMail.appで貼付してください</div>';
+      toast.innerHTML = '<div class="toast">✉️ ' + labelMap[id] + ' を Mail.app で開きます。開かない場合は 📋 ボタンで宛先をコピーしてください</div>';
+      // preventDefault しない＝<a> のネイティブ click が走って mailto: が起動する
     });
   });
 
