@@ -2512,12 +2512,19 @@
               for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
               const blob = new Blob([arr], { type: att.mime || "application/octet-stream" });
               const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = att.name;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
+              // PDF・画像は新タブで開く（ブラウザがプレビュー）
+              // それ以外は従来どおりダウンロード
+              const isPreviewable = /pdf|image\/(png|jpe?g|gif|webp|bmp)|text\/(plain|html)/i.test(att.mime || "");
+              if (isPreviewable) {
+                window.open(url, "_blank");
+              } else {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = att.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }
               setTimeout(() => URL.revokeObjectURL(url), 60000);
               chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#5C9A6F;font-size:11px;">✓</span>');
             } catch(err) {
