@@ -651,7 +651,12 @@
     <h2>📧 Mail-Check! Web</h2>
     <p class="lead">Gmail と Claude AI を使ってメールを仕分けます。最初に2つのキーが必要です。</p>
     <label>
-      Claude API キー
+      <strong style="color:#5C9A6F;">Gemini API キー</strong>（推奨・無料枠あり）
+      <small>取得：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey</a> → Create API key</small>
+      <input type="password" id="login-gemini-key" placeholder="AIzaSy..." autocomplete="off">
+    </label>
+    <label>
+      Claude API キー（オプション・Geminiが空のときに使う）
       <small>取得：<a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);">console.anthropic.com</a></small>
       <input type="password" id="login-claude-key" placeholder="sk-ant-api03-..." autocomplete="off">
     </label>
@@ -672,6 +677,7 @@
     </label>
     <div class="actions">
       <button class="gbtn" id="login-google-btn">Googleでログイン</button>
+      <button class="test-btn" id="login-test-gemini" style="background:rgba(92,154,111,0.15);color:#5C9A6F;border-color:#5C9A6F;">Gemini疎通テスト</button>
       <button class="test-btn" id="login-test-claude">Claude疎通テスト</button>
       <button class="test-btn" id="login-save-only" style="display:none;">設定を保存して閉じる</button>
     </div>
@@ -881,6 +887,8 @@
     const v = document.getElementById("login-veil");
     if (v) v.style.display = "flex";
     const s = _loadWebSettings();
+    const gk = document.getElementById("login-gemini-key");
+    if (gk) gk.value = s.geminiKey || "";
     const ck = document.getElementById("login-claude-key");
     if (ck) ck.value = s.claudeKey || "";
     const em = document.getElementById("login-email");
@@ -1331,28 +1339,48 @@
     },
     async askClaude(prompt, items) {
       const s = _loadWebSettings();
-      if (!s.claudeKey) throw new Error("Claude APIキー未設定");
       const userContent = prompt + (items ? ("\n\n" + JSON.stringify(items)) : "");
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": s.claudeKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 4096,
-          messages: [{ role: "user", content: userContent }]
-        })
-      });
-      if (!r.ok) {
-        const t = await r.text();
-        throw new Error("Claude API " + r.status + ": " + t);
+      // 優先順：Gemini（無料枠あり）→ Claude（有料）
+      if (s.geminiKey) {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(s.geminiKey), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userContent }] }],
+            generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
+          })
+        });
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error("Gemini API " + r.status + ": " + t);
+        }
+        const d = await r.json();
+        const txt = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts && d.candidates[0].content.parts[0] && d.candidates[0].content.parts[0].text) || "";
+        // Cowork の parseResult で抽出できる形に揃える（content[0].text）
+        return { content: [{ type: "text", text: txt }] };
       }
-      const d = await r.json();
-      return d; // { content: [{type:"text", text: "..."}] }
+      if (s.claudeKey) {
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": s.claudeKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 4096,
+            messages: [{ role: "user", content: userContent }]
+          })
+        });
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error("Claude API " + r.status + ": " + t);
+        }
+        return await r.json();
+      }
+      throw new Error("AI APIキー未設定（Gemini か Claude のどちらかを設定してください）");
     }
   };
 
@@ -1370,7 +1398,7 @@
       const surname = (document.getElementById("login-surname").value || "").trim();
       const signature = (document.getElementById("login-signature").value || "").trim();
       if (!claudeKey || !email || !surname) { alert("3項目すべて入力してください"); return; }
-      _saveWebSettings({ ...s, claudeKey, userEmail: email, userSurname: surname, userSignature: signature });
+      const geminiKey = (document.getElementById("login-gemini-key") && document.getElementById("login-gemini-key").value || "").trim(); _saveWebSettings({ ...s, claudeKey, geminiKey, userEmail: email, userSurname: surname, userSignature: signature });
       _syncToOriginalSettings({ userEmail: email, userSurname: surname });
       // 元の設定キーも更新（applySettingsToUI を呼び直す）
       try {
@@ -1382,6 +1410,25 @@
         }
       } catch(e) {}
       _login();
+    });
+    // Gemini 疎通テストボタン
+    const geminiTestBtn = document.getElementById("login-test-gemini");
+    if (geminiTestBtn) geminiTestBtn.addEventListener("click", async () => {
+      const out = document.getElementById("login-test-out");
+      const gk = (document.getElementById("login-gemini-key").value || "").trim();
+      out.style.display = "block"; out.textContent = "Gemini 呼び出し中…";
+      try {
+        const t0 = Date.now();
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(gk), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "「こんにちは」とだけ答えてください" }] }], generationConfig: { maxOutputTokens: 50 } })
+        });
+        const d = await r.json();
+        if (!r.ok) { out.textContent = "Gemini 失敗: " + JSON.stringify(d); return; }
+        const txt = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts && d.candidates[0].content.parts[0] && d.candidates[0].content.parts[0].text || "";
+        out.textContent = "Gemini 成功 (" + (Date.now()-t0) + "ms): " + txt;
+      } catch(e) { out.textContent = "Gemini 失敗: " + e.message; }
     });
     if (btnTest) btnTest.addEventListener("click", async () => {
       const out = document.getElementById("login-test-out");
@@ -1434,7 +1481,7 @@
       const email = (document.getElementById("login-email").value || "").trim();
       const surname = (document.getElementById("login-surname").value || "").trim();
       const signature = (document.getElementById("login-signature").value || "").trim();
-      _saveWebSettings({ ...s, claudeKey, userEmail: email, userSurname: surname, userSignature: signature });
+      const geminiKey = (document.getElementById("login-gemini-key") && document.getElementById("login-gemini-key").value || "").trim(); _saveWebSettings({ ...s, claudeKey, geminiKey, userEmail: email, userSurname: surname, userSignature: signature });
       _syncToOriginalSettings({ userEmail: email, userSurname: surname });
       try {
         if (typeof settings !== "undefined") {
