@@ -2162,7 +2162,7 @@
       const last = (t.messages || [])[(t.messages || []).length - 1] || {};
       return { idx: i, from: last.sender, subject: last.subject, snippet: (last.snippet || "").slice(0, 200) };
     });
-    const prompt = "各メールを以下の3つに分類:\n- \"reply\": 仕事の依頼/相談/確認/図面・資料のやり取り（要返信）\n- \"info\": 情報共有、FYI、議事録、進捗報告\n- \"ad\": 広告/通知/ニュースレター/EC配送通知/SNS通知\n\nJSON配列のみで返答(説明文不要):\n[{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
+    const prompt = "各メールを次の3つに分類してください。判定は厳しめに、迷ったら ad にしてください：\n\n- \"reply\": 人から自分に向けて送られた仕事の依頼/相談/確認/図面・資料のやり取りで返信が必要なもの\n- \"info\": 人から送られた情報共有、議事録、進捗報告（返信不要）\n- \"ad\": 以下すべて（強めに分類すること）：\n  - 広告・ニュースレター・キャンペーン\n  - EC配送通知（Amazon、楽天、注文確認、発送通知）\n  - SNS通知（Pinterest、Instagram、X、LINE等）\n  - サービス通知（領収書、請求書、決済、支払い、サブスク更新）\n  - 新規登録/ようこそメール（welcome、Hi、サインアップ確認、認証コード）\n  - カレンダー通知（Google カレンダー、リマインダー）\n  - クラウドサービス通知（Drive アクティビティ、Dropbox 共有）\n  - 自動配信メール（noreply、no-reply、info@、notification@）\n  - 不在通知、自動返信\n\n人間が手書きで送ったものだけ reply / info にし、それ以外は ad にする。\n\nJSON配列のみで返答（説明文不要）:\n[{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
     try {
       const result = await window.cowork.askClaude(prompt, items);
       let text = result;
@@ -2596,10 +2596,11 @@
   });
 
   async function classifyAll(threads) {
-    // エコモード：分類は完全ルールベース。AIを一切呼ばない。
-    // ad → ruleClassify 判定 / それ以外は info 扱い（reply 判別もしない＝ AI 不要）
+    // ルール分類で広告が確定するものはまずそこで弾く（AI不要・無料・速い）
+    // 残りは Gemini に kind 判定だけ依頼（要約は不要、トークン節約）
+    const todo = [];
     threads.forEach((t) => {
-      if (t._kind && t._kind !== "loading") return;  // 既に分類済みはスキップ
+      if (t._kind && t._kind !== "loading") return;
       const cached = kindCache[t.id];
       if (cached && cached.kind) {
         t._kind = cached.kind;
@@ -2610,11 +2611,38 @@
       const r = ruleClassify(t);
       if (r && r.kind === "ad") {
         t._kind = "ad"; t._summary = null; t._displayName = null;
-      } else {
-        t._kind = "info"; t._summary = null; t._displayName = null;
+        kindCache[t.id] = { kind: "ad", summary: null, displayName: null };
+        return;
       }
-      kindCache[t.id] = { kind: t._kind, summary: null, displayName: null };
+      todo.push(t);
     });
+    if (todo.length > 0) {
+      const processBatches = async (list) => {
+        const batches = [];
+        for (let i = 0; i < list.length; i += 15) batches.push(list.slice(i, i + 15));
+        const CONCURRENCY = 2;
+        for (let i = 0; i < batches.length; i += CONCURRENCY) {
+          const wave = batches.slice(i, i + CONCURRENCY);
+          await Promise.all(wave.map(async (batch) => {
+            try {
+              const aiResult = await aiClassifyKindOnly(batch);
+              batch.forEach((t, j) => {
+                const r = aiResult[j] || {};
+                t._kind = r.kind || "info";
+                t._summary = null;
+                t._displayName = null;
+                kindCache[t.id] = { kind: t._kind, summary: null, displayName: null };
+              });
+            } catch(e) {
+              // AI 失敗時は info 扱い（表示だけはする）
+              batch.forEach(t => { t._kind = "info"; t._summary = null; });
+            }
+          }));
+          renderColumns();
+        }
+      };
+      await processBatches(todo);
+    }
     const keys = Object.keys(kindCache);
     if (keys.length > 1500) {
       const trimmed = {};
