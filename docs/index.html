@@ -1343,7 +1343,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: userContent }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
+          generationConfig: { maxOutputTokens: 8192, temperature: 0.2, responseMimeType: "application/json" }
         })
       });
       if (!r.ok) {
@@ -2177,7 +2177,7 @@
       const last = (t.messages || [])[(t.messages || []).length - 1] || {};
       return { idx: i, from: last.sender, subject: last.subject, snippet: (last.snippet || "").slice(0, 200) };
     });
-    const prompt = "各メールを3つに分類してください。コンサート演出家のメールチェックなので、仕事関係を見逃したくない、広告だけ確実に隠したい：\n\n- \"reply\": 人(コンサート関係者・スタッフ・取引先)から仕事の依頼・相談・確認・資料のやり取りが来ていて返信が必要\n- \"info\": 人からの情報共有・議事録・進捗報告（返信は急がない）\n- \"ad\": 以下に該当するもの ONLY：\n  - 明らかな広告・キャンペーン・ニュースレター\n  - EC配送通知（Amazon、楽天、注文確認、発送通知）\n  - SNS通知（Pinterest、Instagram、X等）\n  - 自動領収書・請求書・サブスク更新通知\n  - サインアップ確認・認証コード・welcome系（Hi xxx、welcome to）\n  - カレンダー通知（Google カレンダー、リマインダー、休日通知）\n  - クラウドサービス通知（Drive アクティビティ、共有フォルダ通知）\n  - 自動配信（送信者が noreply/no-reply/info@/notification@/alerts@/system@）\n\n判断ルール：\n- 迷ったら info にする（仕事メールを見逃さないため）\n- 人が手書きで書いたものは絶対に ad にしない\n- 公演・舞台・コンサート・撮影・スケジュール・図面・見積・スタッフに関するメールは絶対 ad にしない\n\nJSON配列のみで返答（説明文不要）:\n[{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
+    const prompt = "各メールを3つに分類してください。コンサート演出家のメールチェックなので、仕事関係を見逃したくない、広告だけ確実に隠したい：\n\n- \"reply\": 人(コンサート関係者・スタッフ・取引先)から仕事の依頼・相談・確認・資料のやり取りが来ていて返信が必要\n- \"info\": 人からの情報共有・議事録・進捗報告（返信は急がない）\n- \"ad\": 以下に該当するもの ONLY：\n  - 明らかな広告・キャンペーン・ニュースレター\n  - EC配送通知（Amazon、楽天、注文確認、発送通知）\n  - SNS通知（Pinterest、Instagram、X等）\n  - 自動領収書・請求書・サブスク更新通知\n  - サインアップ確認・認証コード・welcome系（Hi xxx、welcome to）\n  - カレンダー通知（Google カレンダー、リマインダー、休日通知）\n  - クラウドサービス通知（Drive アクティビティ、共有フォルダ通知）\n  - 自動配信（送信者が noreply/no-reply/info@/notification@/alerts@/system@）\n\n判断ルール：\n- 迷ったら info にする（仕事メールを見逃さないため）\n- 人が手書きで書いたものは絶対に ad にしない\n- 公演・舞台・コンサート・撮影・スケジュール・図面・見積・スタッフに関するメールは絶対 ad にしない\n\n必ずプロパティ名を `idx` と `kind` にすること（category 等は禁止）。\nコードブロックや説明文は付けず、JSON配列だけを返してください。\n例: [{\"idx\":0,\"kind\":\"reply\"},{\"idx\":1,\"kind\":\"ad\"}]";
     try {
       const result = await window.cowork.askClaude(prompt, items);
       let text = result;
