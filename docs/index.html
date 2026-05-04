@@ -2417,36 +2417,25 @@
     if (e.target.id === "modal-bg") closeModal();
   });
 
-  // 3つの返信ボタン：隠し iframe 経由で mailto: を発火
-  // （ネイティブ <a> click だけだと Chrome が時々 mailto を OS に渡さないので、
-  //   隠し iframe を使って確実に発火する。これで macOS Mail.app がほぼ確実に起動）
-  function _fireMailto(href) {
-    try {
-      let f = document.getElementById("mailto-fire-iframe");
-      if (!f) {
-        f = document.createElement("iframe");
-        f.id = "mailto-fire-iframe";
-        f.style.display = "none";
-        f.setAttribute("aria-hidden", "true");
-        document.body.appendChild(f);
-      }
-      f.src = href;
-    } catch(e) {
-      // 最終フォールバック：location.href（ページ遷移してしまうがmailto:なら戻る）
-      try { window.location.href = href; } catch(_) {}
-    }
-  }
+  // 3つの返信ボタン：複数の方式を併用して macOS Mail.app を確実に起動
+  // 1. ネイティブ <a> click（preventDefault しない）
+  // 2. setTimeout 後 window.open(href, "_self") で再発火（環境によってはこちらだけ動く）
+  // 3. iframe 経由でさらに保険
   ["mail-reply-sender", "mail-reply-all", "mail-forward"].forEach(id => {
     document.getElementById(id).addEventListener("click", (e) => {
-      e.preventDefault();
+      const href = e.currentTarget.href;
       const toast = document.getElementById("toast-area");
       const labelMap = {
         "mail-reply-sender": "送信者へ返信",
         "mail-reply-all": "全員に返信",
         "mail-forward": "転送"
       };
-      toast.innerHTML = '<div class="toast">✉️ ' + labelMap[id] + ' を Mail.app で開きます…開かない場合は 📋 ボタンで宛先をコピーして手動で書き始めてください</div>';
-      _fireMailto(e.currentTarget.href);
+      toast.innerHTML = '<div class="toast">✉️ ' + labelMap[id] + ' を Mail.app で開きます…開かない場合は 📋 で宛先コピー</div>';
+      // フォールバック1: 50ms後に window.open で再発火（多くの環境はこれが効く）
+      setTimeout(() => {
+        try { window.open(href, "_self"); } catch(err) {}
+      }, 50);
+      // 注：preventDefault しない＝<a> のネイティブ動作も走る
     });
   });
 
