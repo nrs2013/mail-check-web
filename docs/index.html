@@ -232,6 +232,14 @@
     border-color: rgba(212, 146, 90, 0.45);
     box-shadow: 0 2px 10px rgba(212, 146, 90, 0.12);
   }
+  /* 野村宛は文字を明るく（特に本文全文表示で暗く見える対策） */
+  .cell.priority .sender { color: #f0c896 !important; }
+  .cell.priority .subject { color: #ffffff !important; font-weight: 700; }
+  .cell.priority .summary.long { color: #f0f0f0 !important; }
+  .cell.priority .summary.placeholder { color: #b0b0b0 !important; }
+  .cell.priority .att-name-only { color: #d0d0d0 !important; }
+  .cell.priority .file-link { color: #8ab8ff !important; }
+
   .col-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
   .col-title .ico { width: 14px; height: 14px; opacity: .7; }
   .col-head.priority .col-title { color: var(--reply); }
