@@ -3045,8 +3045,9 @@
           });
           const data = parseResult(result);
           const messages = (data && data.messages) || [];
-          let combined = "";
-          messages.forEach(msg => { combined += " " + (msg.plaintextBody || msg.body || msg.snippet || ""); });
+          // 最新メッセージ本文のみを対象（過去メッセージの古い URL を拾わないように）
+          const latest = messages[messages.length - 1] || {};
+          let combined = (latest.plaintextBody || latest.body || latest.snippet || "");
           // 長いURLが複数行に折り返されたケースを救済（plaintext本文のwrap対策）
           let prev;
           do { prev = combined; combined = combined.replace(/(https?:\/\/\S+)[\r\n]+(\S)/g, '$1$2'); } while (combined !== prev);
