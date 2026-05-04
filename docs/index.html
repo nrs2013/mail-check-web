@@ -665,9 +665,15 @@
       <small>「○○様」の判定用</small>
       <input type="text" id="login-surname" placeholder="野村">
     </label>
+    <label>
+      署名（返信時に末尾に自動で付きます・空欄なら付きません）
+      <small>例：株式会社nrs / 野村 裕紀 / TEL 090-... / Mail nomura@nrs1.jp</small>
+      <textarea id="login-signature" rows="6" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:12px;font-family:inherit;margin-top:4px;box-sizing:border-box;resize:vertical;"></textarea>
+    </label>
     <div class="actions">
       <button class="gbtn" id="login-google-btn">Googleでログイン</button>
       <button class="test-btn" id="login-test-claude">Claude疎通テスト</button>
+      <button class="test-btn" id="login-save-only" style="display:none;">設定を保存して閉じる</button>
     </div>
     <pre id="login-test-out" style="display:none;"></pre>
   </div>
@@ -1252,8 +1258,9 @@
       const claudeKey = (document.getElementById("login-claude-key").value || "").trim();
       const email = (document.getElementById("login-email").value || "").trim();
       const surname = (document.getElementById("login-surname").value || "").trim();
+      const signature = (document.getElementById("login-signature").value || "").trim();
       if (!claudeKey || !email || !surname) { alert("3項目すべて入力してください"); return; }
-      _saveWebSettings({ ...s, claudeKey, userEmail: email, userSurname: surname });
+      _saveWebSettings({ ...s, claudeKey, userEmail: email, userSurname: surname, userSignature: signature });
       _syncToOriginalSettings({ userEmail: email, userSurname: surname });
       // 元の設定キーも更新（applySettingsToUI を呼び直す）
       try {
@@ -1293,6 +1300,42 @@
       } catch(e) { out.textContent = "失敗: " + e.message; }
     });
     if (btnLogout) btnLogout.addEventListener("click", _logout);
+
+    // ⚙ 設定 ボタン → ログインカードを「全フィールド表示」で開く（署名編集用）
+    const openSettingsBtn = document.getElementById("open-settings-btn");
+    if (openSettingsBtn) openSettingsBtn.addEventListener("click", () => {
+      _showLoginVeil();
+      // 全フィールドを強制的に表示
+      document.querySelectorAll("#login-veil .login-card label").forEach(el => el.style.display = "");
+      const link = document.getElementById("login-edit-link");
+      if (link) link.remove();
+      // 「設定を保存して閉じる」ボタンを表示してログイン無しで反映できるように
+      const saveOnly = document.getElementById("login-save-only");
+      if (saveOnly) saveOnly.style.display = "";
+      const lead = document.querySelector("#login-veil .login-card .lead");
+      if (lead) lead.textContent = "設定を更新してください。署名を変更したら下の「設定を保存して閉じる」を押してください。";
+    });
+    
+    // 「設定を保存して閉じる」ボタン（ログインせず設定だけ更新）
+    const saveOnlyBtn = document.getElementById("login-save-only");
+    if (saveOnlyBtn) saveOnlyBtn.addEventListener("click", () => {
+      const s = _loadWebSettings();
+      const claudeKey = (document.getElementById("login-claude-key").value || "").trim();
+      const email = (document.getElementById("login-email").value || "").trim();
+      const surname = (document.getElementById("login-surname").value || "").trim();
+      const signature = (document.getElementById("login-signature").value || "").trim();
+      _saveWebSettings({ ...s, claudeKey, userEmail: email, userSurname: surname, userSignature: signature });
+      _syncToOriginalSettings({ userEmail: email, userSurname: surname });
+      try {
+        if (typeof settings !== "undefined") {
+          settings.email = email;
+          settings.surname = surname;
+          if (typeof applySettingsToUI === "function") applySettingsToUI();
+        }
+      } catch(e) {}
+      _hideLoginVeil();
+    });
+
   });
 
   const SEARCH_TOOL = "mcp__19563f62-bf66-428a-a54d-aa5a0c40fba3__search_threads";
@@ -2313,7 +2356,11 @@
       const replySubj = /^re:/i.test(rawSubj) ? rawSubj : "Re: " + rawSubj;
       const fwdSubj = /^fwd?:/i.test(rawSubj) ? rawSubj : "Fwd: " + rawSubj;
       // 短い引用本文（mailto URL長すぎ問題回避）
-      const shortQuote = "\n\n--- " + senderName(lastMsg.sender) + " さんのメール ---\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 300));
+      // 署名がある場合：本文先頭に空行2つ→署名→空行→引用 の順
+      const _webSettings = (function(){ try { return JSON.parse(localStorage.getItem("mailCheckWebSettings_v1") || "{}"); } catch(e) { return {}; } })();
+      const _signature = (_webSettings.userSignature || "").trim();
+      const _signatureBlock = _signature ? ("\n\n--\n" + _signature) : "";
+      const shortQuote = "\n\n" + _signatureBlock + "\n\n--- " + senderName(lastMsg.sender) + " さんのメール ---\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 300));
       // To/Ccから自分(ME)を除外したリストを作る → 全員返信用
       const extractEmail = (s) => {
         const m = String(s || "").match(/<([^>]+)>/);
@@ -2339,7 +2386,7 @@
       // 3. 転送（宛先空、件名 Fwd:、本文に元メール）
       const mailtoFwd = "mailto:"
         + "?subject=" + encodeURIComponent(fwdSubj)
-        + "&body=" + encodeURIComponent("\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 600)));
+        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 600)));
 
       document.getElementById("mail-reply-sender").href = mailtoSender;
       document.getElementById("mail-reply-all").href = mailtoAll;
