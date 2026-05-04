@@ -6,6 +6,13 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.svg?v=2">
 <meta name="theme-color" content="#d4925a">
 <title>Mail-Check!</title>
+<!-- PDF.js: PDF添付の1ページ目をサムネ化するために使う -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window['pdfjsLib']) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 <style>
   :root {
     color-scheme: dark;
@@ -2576,6 +2583,71 @@
           } catch(e) {
             placeholder.textContent = '読込失敗';
             placeholder.style.color = '#d97766';
+          }
+        });
+        // PDF添付の自動サムネ表示（PDF.jsで1ページ目を描画）
+        const pdfAtts = allAtts.filter(a => /pdf/i.test(a.mime || "") && a.messageId && a.attachmentId);
+        pdfAtts.forEach(async (att) => {
+          if (!tok || !tok.token) return;
+          const placeholder = document.createElement('div');
+          placeholder.style.cssText = 'width:140px;height:140px;background:var(--bg);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:11px;gap:6px;';
+          placeholder.innerHTML = '<div style="font-size:28px;">📄</div><div>PDF読込中…</div>';
+          previewArea.appendChild(placeholder);
+          try {
+            // PDF.js が読み込まれるまで最大5秒待つ（CDN 取得が遅い場合に備える）
+            if (!window.pdfjsLib) {
+              await new Promise(r => {
+                let waited = 0;
+                const interval = setInterval(() => {
+                  waited += 100;
+                  if (window.pdfjsLib || waited >= 5000) { clearInterval(interval); r(); }
+                }, 100);
+              });
+            }
+            if (!window.pdfjsLib) throw new Error('PDF.js not loaded');
+            // worker のパスを保証（head の script で既に設定済みだが念のため）
+            if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+            const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + att.messageId + "/attachments/" + att.attachmentId, {
+              headers: { Authorization: "Bearer " + tok.token }
+            });
+            if (!r.ok) throw new Error("pdf fetch fail");
+            const d = await r.json();
+            const b64 = (d.data || "").replace(/-/g, "+").replace(/_/g, "/");
+            const bin = atob(b64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            // PDF.js でロード → 1ページ目を canvas に描画
+            const pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
+            const page = await pdf.getPage(1);
+            const baseViewport = page.getViewport({ scale: 1 });
+            // 140x140 にフィットさせるスケール（×2 でレティナ対応）
+            const fitScale = Math.min(140 / baseViewport.width, 140 / baseViewport.height) * 2;
+            const viewport = page.getViewport({ scale: fitScale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.cssText = 'width:' + (viewport.width / 2) + 'px;height:' + (viewport.height / 2) + 'px;display:block;';
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            // 完成サムネに差し替え
+            placeholder.innerHTML = '';
+            placeholder.style.cssText = 'cursor:pointer;border-radius:6px;overflow:hidden;border:1px solid var(--border);width:140px;height:140px;background:#fff;display:flex;align-items:center;justify-content:center;position:relative;';
+            placeholder.title = att.name + ' (クリックでGmailを開く)';
+            placeholder.appendChild(canvas);
+            // 下部に「📄 PDF」のバッジを重ねる
+            const badge = document.createElement('div');
+            badge.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);color:#fff;font-size:10px;padding:3px 4px;text-align:center;line-height:1;';
+            badge.textContent = '📄 PDF · ' + (pdf.numPages > 1 ? (pdf.numPages + 'p') : '1p');
+            placeholder.appendChild(badge);
+            // クリックで Gmail Web のスレッドを新タブで開く（ネイティブプレビュー）
+            placeholder.addEventListener('click', () => {
+              const realThreadId = (state.currentThread && (state.currentThread.threadId || state.currentThread.id)) || att.messageId;
+              window.open("https://mail.google.com/mail/u/0/#inbox/" + realThreadId, "_blank");
+            });
+          } catch(e) {
+            placeholder.innerHTML = '<div style="font-size:24px;">📄</div><div style="color:#d97766;">読込失敗</div>';
           }
         });
         // 添付チップに onclick を仕掛ける
