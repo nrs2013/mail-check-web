@@ -2119,6 +2119,8 @@
       return { email, body };
     }));
 
+    // エコモード：送信者名のAI学習を停止（コスト削減）
+    return;
     // AI抽出（5件ずつバッチ）
     for (let i = 0; i < samples.length; i += 5) {
       const batch = samples.slice(i, i + 5);
@@ -2574,53 +2576,25 @@
   });
 
   async function classifyAll(threads) {
-    const todo = [];
+    // エコモード：分類は完全ルールベース。AIを一切呼ばない。
+    // ad → ruleClassify 判定 / それ以外は info 扱い（reply 判別もしない＝ AI 不要）
     threads.forEach((t) => {
-      if (t._kind && t._kind !== "loading" && t._summary !== undefined && t._displayName !== undefined) return;
+      if (t._kind && t._kind !== "loading") return;  // 既に分類済みはスキップ
       const cached = kindCache[t.id];
-      if (cached && cached.summary !== undefined) {
-        t._kind = cached.kind; t._summary = cached.summary; t._displayName = cached.displayName || null;
+      if (cached && cached.kind) {
+        t._kind = cached.kind;
+        t._summary = cached.summary !== undefined ? cached.summary : null;
+        t._displayName = cached.displayName || null;
         return;
       }
       const r = ruleClassify(t);
       if (r && r.kind === "ad") {
         t._kind = "ad"; t._summary = null; t._displayName = null;
-        kindCache[t.id] = { kind: "ad", summary: null, displayName: null };
-        return;
+      } else {
+        t._kind = "info"; t._summary = null; t._displayName = null;
       }
-      todo.push(t);
+      kindCache[t.id] = { kind: t._kind, summary: null, displayName: null };
     });
-    if (todo.length > 0) {
-      // 野村宛(要約付き)と それ以外(kindのみ)に分ける → トークン節約
-      const nomuraTodo = todo.filter(t => startsWithNomura(t));
-      const otherTodo = todo.filter(t => !startsWithNomura(t));
-
-      const processBatches = async (list, fn) => {
-        const batches = [];
-        for (let i = 0; i < list.length; i += 10) batches.push(list.slice(i, i + 10));
-        const CONCURRENCY = 3;
-        for (let i = 0; i < batches.length; i += CONCURRENCY) {
-          const wave = batches.slice(i, i + CONCURRENCY);
-          await Promise.all(wave.map(async (batch) => {
-            const aiResult = await fn(batch);
-            batch.forEach((t, j) => {
-              const r = aiResult[j] || {};
-              t._kind = r.kind || "info";
-              t._summary = r.summary || null;
-              t._displayName = r.displayName || null;
-              kindCache[t.id] = { kind: t._kind, summary: t._summary, displayName: t._displayName };
-            });
-          }));
-          renderColumns();
-        }
-      };
-
-      // 並列で両系統を実行（野村宛も要約は使わないので kind のみ）
-      await Promise.all([
-        processBatches(nomuraTodo, aiClassifyKindOnly),  // 野村宛: kindだけ（要約は本文全文に置換した）
-        processBatches(otherTodo, aiClassifyKindOnly),   // 他: kindのみ
-      ]);
-    }
     const keys = Object.keys(kindCache);
     if (keys.length > 1500) {
       const trimmed = {};
