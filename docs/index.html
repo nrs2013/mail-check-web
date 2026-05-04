@@ -3210,10 +3210,19 @@
     }
     let fileLinksHtml = '';
     if (fileLinks && fileLinks.length > 0) {
-      fileLinksHtml = '<div class="file-links">' + fileLinks.map(fl =>
-        '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.url) + '">' +
+      // 同じドメイン+パスの重複を除去
+      const seen_ = new Set();
+      const dedupedLinks = fileLinks.filter(fl => {
+        const key = (fl.url || "").split("?")[0].replace(/\/+$/, "").toLowerCase();
+        if (seen_.has(key)) return false;
+        seen_.add(key);
+        return true;
+      });
+      fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;">' + dedupedLinks.map(fl =>
+        '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
           '<span class="fl-icon">' + fl.icon + '</span>' +
-          '<span class="fl-text">' + escapeHtml(fl.label) + ': ' + escapeHtml(fl.url) + '</span>' +
+          '<span class="fl-text">' + escapeHtml(fl.label) + '</span>' +
+          '<span style="opacity:0.6;font-size:10px;">↗</span>' +
         '</a>'
       ).join("") + '</div>';
     }
