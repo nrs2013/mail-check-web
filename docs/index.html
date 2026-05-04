@@ -782,7 +782,7 @@
   // === Web版アダプタ：window.cowork shim（Gmail REST + Anthropic API）
   // ============================================================
   const WEB_OAUTH_CLIENT_ID = "945690023094-gvbhs56b90onlr4g55i4ose17sk0kdr6.apps.googleusercontent.com";
-  const WEB_OAUTH_SCOPES = "https://www.googleapis.com/auth/gmail.readonly";
+  const WEB_OAUTH_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.appdata";
   const WEB_TOKEN_KEY = "mailCheckWebToken_v1";
   const WEB_SETTINGS_KEY = "mailCheckWebSettings_v1";
   const WEB_KIND_CACHE_KEY = "mailDashKindCache_v16"; // 共用OK
@@ -843,8 +843,12 @@
         _accessToken = resp.access_token;
         _saveToken(_accessToken, resp.expires_in);
         _hideLoginVeil();
-        // 既存の refresh() を発火（再フェッチ）
-        if (typeof refresh === "function") refresh();
+        // Drive から PIC UP! を pull（先にやってから refresh）
+        if (window._mailCheckDrivePullCases) {
+          window._mailCheckDrivePullCases().finally(() => {
+            if (typeof refresh === "function") refresh();
+          });
+        } else if (typeof refresh === "function") refresh();
       },
     });
   }
@@ -903,6 +907,119 @@
     const v = document.getElementById("login-veil");
     if (v) v.style.display = "none";
   }
+
+
+  // ============================================================
+  // === Google Drive AppData 同期（複数PC間でPIC UP!を共有）
+  // ============================================================
+  const DRIVE_FILE_NAME = "mailcheck-cases.json";
+  const DRIVE_API = "https://www.googleapis.com/drive/v3";
+  const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3";
+  let _driveFileId = null;
+  let _driveSaveTimer = null;
+
+  async function _driveAuthHeaders() {
+    if (!_accessToken) throw new Error("ログインしてください");
+    return { Authorization: "Bearer " + _accessToken };
+  }
+  async function _driveFindFile() {
+    const r = await fetch(DRIVE_API + "/files?spaces=appDataFolder&q=" + encodeURIComponent("name='" + DRIVE_FILE_NAME + "'") + "&fields=files(id,modifiedTime)", {
+      headers: await _driveAuthHeaders()
+    });
+    if (!r.ok) throw new Error("Drive find " + r.status);
+    const d = await r.json();
+    return (d.files || [])[0] || null;
+  }
+  async function _driveLoad() {
+    try {
+      const f = await _driveFindFile();
+      if (!f) return null;
+      _driveFileId = f.id;
+      const r = await fetch(DRIVE_API + "/files/" + f.id + "?alt=media", {
+        headers: await _driveAuthHeaders()
+      });
+      if (!r.ok) return null;
+      const txt = await r.text();
+      return JSON.parse(txt);
+    } catch(e) { console.warn("Drive load failed:", e); return null; }
+  }
+  async function _driveSave(data) {
+    try {
+      const body = JSON.stringify(data);
+      let url, method;
+      if (_driveFileId) {
+        url = DRIVE_UPLOAD + "/files/" + _driveFileId + "?uploadType=media";
+        method = "PATCH";
+      } else {
+        // 初回：メタ＋本体を multipart で
+        const meta = { name: DRIVE_FILE_NAME, parents: ["appDataFolder"] };
+        const boundary = "------MailCheckBoundary";
+        const m = "--" + boundary + "\r\n" +
+          "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+          JSON.stringify(meta) + "\r\n" +
+          "--" + boundary + "\r\n" +
+          "Content-Type: application/json\r\n\r\n" +
+          body + "\r\n" +
+          "--" + boundary + "--";
+        const r = await fetch(DRIVE_UPLOAD + "/files?uploadType=multipart", {
+          method: "POST",
+          headers: { ...(await _driveAuthHeaders()), "Content-Type": "multipart/related; boundary=" + boundary },
+          body: m
+        });
+        if (!r.ok) throw new Error("Drive create " + r.status);
+        const d = await r.json();
+        _driveFileId = d.id;
+        return;
+      }
+      const r = await fetch(url, {
+        method: method,
+        headers: { ...(await _driveAuthHeaders()), "Content-Type": "application/json" },
+        body: body
+      });
+      if (!r.ok) throw new Error("Drive update " + r.status);
+    } catch(e) { console.warn("Drive save failed:", e); }
+  }
+  // 案件マージ（id ごとに lastUpdate が新しい方を採用）
+  function _mergeCases(localList, remoteList) {
+    const byId = new Map();
+    (localList || []).forEach(c => byId.set(c.id, c));
+    (remoteList || []).forEach(rc => {
+      const lc = byId.get(rc.id);
+      if (!lc) byId.set(rc.id, rc);
+      else {
+        const lt = lc.lastUpdate || 0, rt = rc.lastUpdate || 0;
+        byId.set(rc.id, rt >= lt ? rc : lc);
+      }
+    });
+    return Array.from(byId.values());
+  }
+  // 起動時：Drive から読んでローカルとマージ
+  window._mailCheckDrivePullCases = async function() {
+    if (!_accessToken) return;
+    const remote = await _driveLoad();
+    if (!remote || !Array.isArray(remote.cases)) return;
+    try {
+      const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
+      const merged = _mergeCases(local, remote.cases);
+      localStorage.setItem("mailDashCases_v1", JSON.stringify(merged));
+      // グローバル変数 cases も同期（後で使われる）
+      try { if (typeof cases !== "undefined") { cases.length = 0; merged.forEach(c => cases.push(c)); } } catch(e) {}
+      // 既に画面が描かれていれば再描画
+      try { if (typeof renderCases === "function") renderCases(); } catch(e) {}
+    } catch(e) { console.warn("merge failed:", e); }
+  };
+  // saveCases() から呼ばれる（debounced で Drive にアップロード）
+  window._mailCheckDrivePushCases = function() {
+    if (!_accessToken) return;
+    if (_driveSaveTimer) clearTimeout(_driveSaveTimer);
+    _driveSaveTimer = setTimeout(async () => {
+      try {
+        const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
+        await _driveSave({ cases: local, savedAt: Date.now() });
+      } catch(e) { console.warn(e); }
+    }, 2000);
+  };
+
 
   // ===== Gmail REST 変換 =====
   async function _gmailFetch(path) {
@@ -2824,6 +2941,7 @@
   try { cases = JSON.parse(localStorage.getItem(CASES_KEY) || "[]"); } catch(e) {}
   function saveCases() {
     try { localStorage.setItem(CASES_KEY, JSON.stringify(cases)); } catch(e) {}
+    try { if (window._mailCheckDrivePushCases) window._mailCheckDrivePushCases(); } catch(e) {}
   }
 
   function showAddCaseForm() {
@@ -3078,7 +3196,12 @@
   // === Web版：トークンがあれば即起動、なければログインカード表示 ===
   if (_restoreToken()) {
     _hideLoginVeil();
-    refresh();
+    // 起動時にも Drive から PIC UP! を pull してから refresh
+    if (window._mailCheckDrivePullCases) {
+      window._mailCheckDrivePullCases().finally(() => refresh());
+    } else {
+      refresh();
+    }
   } else {
     _showLoginVeil();
   }
