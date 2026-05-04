@@ -2520,7 +2520,28 @@
             img.src = url;
             img.style.cssText = 'width:140px;height:140px;object-fit:cover;display:block;';
             placeholder.appendChild(img);
-            placeholder.addEventListener('click', () => window.open(url, '_blank'));
+            placeholder.addEventListener('click', () => {
+              const lightbox = document.createElement('div');
+              lightbox.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:40px;';
+              const fullImg = document.createElement('img');
+              fullImg.src = url;
+              fullImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+              const closeBtn = document.createElement('button');
+              closeBtn.textContent = '× 閉じる';
+              closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;';
+              const filename = document.createElement('div');
+              filename.textContent = att.name;
+              filename.style.cssText = 'position:absolute;top:20px;left:20px;color:rgba(255,255,255,0.7);font-size:13px;';
+              const closeFn = () => { lightbox.remove(); document.removeEventListener('keydown', onKey); };
+              const onKey = (e) => { if (e.key === 'Escape') closeFn(); };
+              lightbox.appendChild(fullImg);
+              lightbox.appendChild(closeBtn);
+              lightbox.appendChild(filename);
+              lightbox.addEventListener('click', (e) => { if (e.target === lightbox || e.target === closeBtn) closeFn(); });
+              fullImg.addEventListener('click', (e) => e.stopPropagation());
+              document.addEventListener('keydown', onKey);
+              document.body.appendChild(lightbox);
+            });
           } catch(e) {
             placeholder.textContent = '読込失敗';
             placeholder.style.color = '#d97766';
