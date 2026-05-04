@@ -1001,20 +1001,29 @@
     });
     return Array.from(byId.values());
   }
-  // 起動時：Drive から読んでローカルとマージ
+  // 起動時：Drive から読んでローカルとマージ + 必要なら逆方向プッシュ
   window._mailCheckDrivePullCases = async function() {
     if (!_accessToken) return;
     const remote = await _driveLoad();
-    if (!remote || !Array.isArray(remote.cases)) return;
-    try {
-      const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
-      const merged = _mergeCases(local, remote.cases);
-      localStorage.setItem("mailDashCases_v1", JSON.stringify(merged));
-      // グローバル変数 cases も同期（後で使われる）
-      try { if (typeof cases !== "undefined") { cases.length = 0; merged.forEach(c => cases.push(c)); } } catch(e) {}
-      // 既に画面が描かれていれば再描画
-      try { if (typeof renderCases === "function") renderCases(); } catch(e) {}
-    } catch(e) { console.warn("merge failed:", e); }
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]"); } catch(e) {}
+    // Drive が空でローカルに案件がある → そのままプッシュ（初回や他PCで作った案件を共有）
+    if (!remote || !Array.isArray(remote.cases)) {
+      if (local.length > 0) {
+        try { await _driveSave({ cases: local, savedAt: Date.now() }); } catch(e) { console.warn("initial push failed:", e); }
+      }
+      return;
+    }
+    // 両方ある → ID単位でマージ（lastUpdate新しい方優先）
+    const merged = _mergeCases(local, remote.cases);
+    localStorage.setItem("mailDashCases_v1", JSON.stringify(merged));
+    // マージ結果がリモートと異なれば push（他PCに反映）
+    if (JSON.stringify(merged) !== JSON.stringify(remote.cases)) {
+      try { await _driveSave({ cases: merged, savedAt: Date.now() }); } catch(e) {}
+    }
+    // 同じ IIFE 内の cases / renderCases を更新
+    try { if (typeof cases !== "undefined") { cases.length = 0; merged.forEach(c => cases.push(c)); } } catch(e) {}
+    try { if (typeof renderCases === "function") renderCases(); } catch(e) {}
   };
   // saveCases() から呼ばれる（debounced で Drive にアップロード）
   window._mailCheckDrivePushCases = function() {
@@ -1025,7 +1034,7 @@
         const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
         await _driveSave({ cases: local, savedAt: Date.now() });
       } catch(e) { console.warn(e); }
-    }, 2000);
+    }, 1000);
   };
 
 
@@ -1168,6 +1177,27 @@
     const t = await _gmailFetch("threads/" + args.threadId + "?format=full");
     return { id: t.id, messages: (t.messages || []).map(_toMcpMessage) };
   }
+
+
+  // ページを閉じる直前：debounce 残っていたら送り切る
+  window.addEventListener("beforeunload", () => {
+    if (_driveSaveTimer && _accessToken) {
+      clearTimeout(_driveSaveTimer);
+      _driveSaveTimer = null;
+      try {
+        const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
+        // sendBeacon は OAuth ヘッダー無理なので、同期版 fetch に近い keepalive で
+        const body = JSON.stringify({ cases: local, savedAt: Date.now() });
+        if (_driveFileId) {
+          fetch(DRIVE_UPLOAD + "/files/" + _driveFileId + "?uploadType=media", {
+            method: "PATCH",
+            headers: { Authorization: "Bearer " + _accessToken, "Content-Type": "application/json" },
+            body: body, keepalive: true
+          });
+        }
+      } catch(e) {}
+    }
+  });
 
   // ===== window.cowork shim =====
   window.cowork = {
