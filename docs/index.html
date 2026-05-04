@@ -60,7 +60,7 @@
   <header>
     <div>
       <h1>📧 Mail-Check! Web</h1>
-      <div class="sub">Gmail仕分けダッシュボード（GitHub Pages 版）</div>
+      <div class="sub">Gmail仕分けダッシュボード（GitHub Pages 版・Claude AI）</div>
     </div>
     <div id="status-area"></div>
   </header>
@@ -68,9 +68,9 @@
   <div class="panel">
     <h2>🔑 設定</h2>
     <label>
-      Gemini API キー
-      <small>無料：<a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> で取得</small>
-      <input type="password" id="gemini-key" placeholder="AIzaSy..." autocomplete="off">
+      Claude API キー
+      <small>取得：<a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a></small>
+      <input type="password" id="claude-key" placeholder="sk-ant-api03-..." autocomplete="off">
     </label>
     <label>
       自分のメアド（仕分け基準）
@@ -88,9 +88,9 @@
 
   <div class="panel">
     <h2>🤖 動作テスト</h2>
-    <p>設定を保存したあと、Gemini API が動くかテスト：</p>
+    <p>設定を保存したあと、Claude API が動くかテスト：</p>
     <div class="row">
-      <button class="primary" id="test-gemini">Geminiにこんにちはと言わせる</button>
+      <button class="primary" id="test-ai">Claudeにこんにちはと言わせる</button>
     </div>
     <pre id="test-result">結果はここに表示</pre>
   </div>
@@ -99,11 +99,11 @@
     <h2>🚧 開発状況</h2>
     <ul style="margin: 0; padding-left: 20px;">
       <li>✅ 設定UI（API キー、メアド、姓）</li>
-      <li>✅ Gemini API 動作確認</li>
+      <li>✅ Claude API 動作確認</li>
       <li>⏳ Google でログイン（Gmail OAuth）</li>
       <li>⏳ メール一覧表示</li>
       <li>⏳ 自分宛/To/Cc 仕分け</li>
-      <li>⏳ AI要約</li>
+      <li>⏳ AI要約（Claude Haiku 4.5）</li>
       <li>⏳ PIC UP! 案件サマリー</li>
     </ul>
     <p class="hint">これからCowork版の機能を順次移植します。</p>
@@ -115,12 +115,10 @@
   function loadSettings() {
     try { return JSON.parse(localStorage.getItem(SK) || "{}"); } catch(e) { return {}; }
   }
-  function saveSettings(s) {
-    localStorage.setItem(SK, JSON.stringify(s));
-  }
+  function saveSettings(s) { localStorage.setItem(SK, JSON.stringify(s)); }
   function applyToInputs() {
     const s = loadSettings();
-    document.getElementById("gemini-key").value = s.geminiKey || "";
+    document.getElementById("claude-key").value = s.claudeKey || "";
     document.getElementById("user-email").value = s.userEmail || "";
     document.getElementById("user-surname").value = s.userSurname || "";
     updateStatus();
@@ -128,7 +126,7 @@
   function updateStatus() {
     const s = loadSettings();
     const area = document.getElementById("status-area");
-    const ok = !!(s.geminiKey && s.userEmail && s.userSurname);
+    const ok = !!(s.claudeKey && s.userEmail && s.userSurname);
     area.innerHTML = ok
       ? '<span class="badge ok">設定済み</span>'
       : '<span class="badge ng">未設定</span>';
@@ -136,7 +134,7 @@
 
   document.getElementById("save-settings").addEventListener("click", () => {
     const s = {
-      geminiKey: document.getElementById("gemini-key").value.trim(),
+      claudeKey: document.getElementById("claude-key").value.trim(),
       userEmail: document.getElementById("user-email").value.trim(),
       userSurname: document.getElementById("user-surname").value.trim(),
     };
@@ -151,20 +149,25 @@
     applyToInputs();
   });
 
-  document.getElementById("test-gemini").addEventListener("click", async () => {
+  document.getElementById("test-ai").addEventListener("click", async () => {
     const out = document.getElementById("test-result");
     const s = loadSettings();
-    if (!s.geminiKey) { out.textContent = "まず Gemini API キーを設定してください"; return; }
+    if (!s.claudeKey) { out.textContent = "まず Claude API キーを設定してください"; return; }
     out.textContent = "呼び出し中...";
     const t0 = Date.now();
     try {
-      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(s.geminiKey);
-      const r = await fetch(url, {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": s.claudeKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "日本語で「こんにちは」と一言だけ返してください。それ以外不要。" }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 100 }
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 100,
+          messages: [{ role: "user", content: "日本語で「こんにちは」と一言だけ返してください。それ以外不要。" }]
         })
       });
       const data = await r.json();
@@ -173,7 +176,7 @@
         out.textContent = "APIエラー (" + r.status + "):\n" + JSON.stringify(data, null, 2);
         return;
       }
-      const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : "(空)";
+      const text = data && data.content && data.content[0] ? data.content[0].text : "(空)";
       out.textContent = "成功 (" + dt + "ms)\n応答: " + text + "\n\n生レスポンス:\n" + JSON.stringify(data, null, 2);
     } catch (e) {
       out.textContent = "Error: " + (e.message || e);
