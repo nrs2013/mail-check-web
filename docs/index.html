@@ -1428,6 +1428,31 @@
     } catch(e) {}
   }
 
+
+  // 野村宛メール用：本文を get_thread で取得（最後のメッセージの本文を t._fullBody に格納）
+  async function loadFullBodyForNomura(nomuraThreads) {
+    const targets = nomuraThreads.filter(t => t._fullBody === undefined).slice(0, 30);
+    if (targets.length === 0) return;
+    const fetchOne = async (t) => {
+      try {
+        const result = await window.cowork.callMcpTool(GET_THREAD_TOOL, {
+          threadId: t.id, messageFormat: "FULL_CONTENT"
+        });
+        const data = parseResult(result);
+        const messages = (data && data.messages) || [];
+        const lastMsg = messages[messages.length - 1] || {};
+        t._fullBody = String(lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "");
+      } catch(e) {
+        t._fullBody = "";  // 取得失敗時は空にして再試行を防ぐ
+      }
+    };
+    for (let i = 0; i < targets.length; i += 6) {
+      const batch = targets.slice(i, i + 6);
+      await Promise.all(batch.map(fetchOne));
+      renderColumns();
+    }
+  }
+
   // 野村宛メール用：添付ファイル「個数」を get_thread で取得（Gmail MCPはファイル名を返さない）
   // attachmentIds配列の長さだけ取得して表示
   async function loadAttachmentDetailsForNomura(nomuraThreads) {
@@ -2363,9 +2388,9 @@
         }
       };
 
-      // 並列で両系統を実行
+      // 並列で両系統を実行（野村宛も要約は使わないので kind のみ）
       await Promise.all([
-        processBatches(nomuraTodo, aiClassifyBatch),     // 野村宛: 要約付き
+        processBatches(nomuraTodo, aiClassifyKindOnly),  // 野村宛: kindだけ（要約は本文全文に置換した）
         processBatches(otherTodo, aiClassifyKindOnly),   // 他: kindのみ
       ]);
     }
@@ -2711,9 +2736,28 @@
     if (kind === "ad") {
       summaryHtml = '';
     } else if (isLongSummary) {
-      // 野村宛：AI要約があれば長文表示、なければ snippet
-      if (t._summary) {
-        summaryHtml = '<div class="summary long">' + escapeHtml(t._summary) + '</div>';
+      // 野村宛：AI要約は使わず本文をそのまま全文表示
+      const fullBody = t._fullBody || last.plaintextBody || last.body || "";
+      if (fullBody) {
+        // HTMLタグを除去・改行は保持
+        const cleaned = String(fullBody)
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/(p|div|li|tr|h[1-6])>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">' + escapeHtml(cleaned) + '</div>';
+      } else if (t._fullBody === undefined) {
+        // 取得中
+        summaryHtml = '<div class="summary placeholder">本文取得中…</div>';
       } else {
         summaryHtml = '<div class="summary placeholder">' + escapeHtml((last.snippet || "").slice(0, 200)) + '</div>';
       }
@@ -2823,6 +2867,7 @@
     loadFullFileLinks(allThreads).then(() => renderColumns()).catch(()=>{});
     // 2. 野村宛の添付ファイル名取得
     loadAttachmentDetailsForNomura(state.nomura.threads).then(() => renderColumns()).catch(()=>{});
+    loadFullBodyForNomura(state.nomura.threads).then(() => renderColumns()).catch(()=>{});
     const nomuraCount = state.nomura.threads.length;
     const nrsCount = state.nrs.threads.length;
     const nomuraReply = state.nomura.threads.filter(t => t._kind === "reply").length;
