@@ -2376,14 +2376,15 @@
       state.replyData = { to: senderAddr, subject: replySubj, body: shortQuote };
 
       // mailto: URLを生成（macOS Mail.app で開く）
+      // メアド部分は素のまま（@ を %40 にしないこと、Mail.app が認識しない）
       // 1. 送信者のみに返信
-      const mailtoSender = "mailto:" + encodeURIComponent(senderAddr)
+      const mailtoSender = "mailto:" + senderAddr
         + "?subject=" + encodeURIComponent(replySubj)
         + "&body=" + encodeURIComponent(shortQuote);
       // 2. 全員に返信
-      const mailtoAll = "mailto:" + encodeURIComponent(allTo.join(","))
+      const mailtoAll = "mailto:" + allTo.join(",")
         + "?subject=" + encodeURIComponent(replySubj)
-        + (allCc.length ? "&cc=" + encodeURIComponent(allCc.join(",")) : "")
+        + (allCc.length ? "&cc=" + allCc.join(",") : "")
         + "&body=" + encodeURIComponent(shortQuote);
       // 3. 転送（宛先空、件名 Fwd:、本文に元メール）
       const mailtoFwd = "mailto:"
