@@ -1351,7 +1351,9 @@
         throw new Error("Gemini API " + r.status + ": " + t);
       }
       const d = await r.json();
-      const txt = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts && d.candidates[0].content.parts[0] && d.candidates[0].content.parts[0].text) || "";
+      let txt = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts && d.candidates[0].content.parts[0] && d.candidates[0].content.parts[0].text) || "";
+      // Gemini はマークダウンの ```json ... ``` でラップして返してくることがある → 剥がす
+      txt = txt.replace(/^\s*```(?:json|javascript)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
       // Cowork の parseResult で抽出できる形に揃える（content[0].text）
       return { content: [{ type: "text", text: txt }] };
     }
