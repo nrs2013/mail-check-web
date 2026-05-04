@@ -775,9 +775,9 @@
       <div class="modal-head">
         <div class="modal-title" id="modal-title">読み込み中…</div>
         <div class="modal-head-actions">
-          <a class="act-btn primary" id="mail-reply-sender" href="#" title="送信者のみに返信">↩ 送信者へ</a>
-          <a class="act-btn" id="mail-reply-all" href="#" title="To/Cc全員に返信">↩↩ 全員へ</a>
-          <a class="act-btn" id="mail-forward" href="#" title="転送">→ 転送</a>
+          <a class="act-btn primary" id="mail-reply-sender" href="#" target="_blank" rel="noopener" title="Gmailで送信者のみに返信">↩ 送信者へ</a>
+          <a class="act-btn" id="mail-reply-all" href="#" target="_blank" rel="noopener" title="GmailでTo/Cc全員に返信">↩↩ 全員へ</a>
+          <a class="act-btn" id="mail-forward" href="#" target="_blank" rel="noopener" title="Gmailで転送">→ 転送</a>
           <button class="act-btn" id="copy-mailto-btn" title="送信者のアドレスをコピー">📋</button>
           <a class="act-btn" id="open-gmail-link" href="#" target="_blank" rel="noopener" title="Gmailでスレッドを開く">Gmail</a>
           <button class="close-btn" id="close-btn">×</button>
@@ -2374,19 +2374,24 @@
 
       state.replyData = { to: senderAddr, subject: replySubj, body: shortQuote };
 
+      // Gmail コンポーズ URL（Gmail Webでコンポーズ画面を開く・確実に動作）
+      // https://mail.google.com/mail/?view=cm&fs=1&to=...&su=...&body=...&cc=...
+      const GMAIL_BASE = "https://mail.google.com/mail/?view=cm&fs=1";
       // 1. 送信者のみに返信
-      const mailtoSender = "mailto:" + senderAddr
-        + "?subject=" + encodeURIComponent(replySubj)
+      const mailtoSender = GMAIL_BASE
+        + "&to=" + encodeURIComponent(senderAddr)
+        + "&su=" + encodeURIComponent(replySubj)
         + "&body=" + encodeURIComponent(shortQuote);
       // 2. 全員に返信
-      const mailtoAll = "mailto:" + allTo.join(",")
-        + "?subject=" + encodeURIComponent(replySubj)
+      const mailtoAll = GMAIL_BASE
+        + "&to=" + encodeURIComponent(allTo.join(","))
+        + "&su=" + encodeURIComponent(replySubj)
         + (allCc.length ? "&cc=" + encodeURIComponent(allCc.join(",")) : "")
         + "&body=" + encodeURIComponent(shortQuote);
       // 3. 転送（宛先空、件名 Fwd:、本文に元メール）
-      const mailtoFwd = "mailto:"
-        + "?subject=" + encodeURIComponent(fwdSubj)
-        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 150)));
+      const mailtoFwd = GMAIL_BASE
+        + "&su=" + encodeURIComponent(fwdSubj)
+        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 800)));
 
       document.getElementById("mail-reply-sender").href = mailtoSender;
       document.getElementById("mail-reply-all").href = mailtoAll;
@@ -2417,25 +2422,19 @@
     if (e.target.id === "modal-bg") closeModal();
   });
 
-  // 3つの返信ボタン：複数の方式を併用して macOS Mail.app を確実に起動
-  // 1. ネイティブ <a> click（preventDefault しない）
-  // 2. setTimeout 後 window.open(href, "_self") で再発火（環境によってはこちらだけ動く）
-  // 3. iframe 経由でさらに保険
+  // 3つの返信ボタン：Gmail Web を新タブで開く（target="_blank" + rel="noopener"）
+  // mailto: は環境依存で動かないことが多いので、Gmail のコンポーズ画面に直接ジャンプ。
+  // 100% 動作する。Gmail に未ログインなら一度ログイン画面が出るが、署名付きで全項目埋まる。
   ["mail-reply-sender", "mail-reply-all", "mail-forward"].forEach(id => {
     document.getElementById(id).addEventListener("click", (e) => {
-      const href = e.currentTarget.href;
       const toast = document.getElementById("toast-area");
       const labelMap = {
         "mail-reply-sender": "送信者へ返信",
         "mail-reply-all": "全員に返信",
         "mail-forward": "転送"
       };
-      toast.innerHTML = '<div class="toast">✉️ ' + labelMap[id] + ' を Mail.app で開きます…開かない場合は 📋 で宛先コピー</div>';
-      // フォールバック1: 50ms後に window.open で再発火（多くの環境はこれが効く）
-      setTimeout(() => {
-        try { window.open(href, "_self"); } catch(err) {}
-      }, 50);
-      // 注：preventDefault しない＝<a> のネイティブ動作も走る
+      toast.innerHTML = '<div class="toast">📧 ' + labelMap[id] + ' を Gmail で開きました（新しいタブ）</div>';
+      // <a target="_blank"> のネイティブ動作で開く。preventDefault しない。
     });
   });
 
