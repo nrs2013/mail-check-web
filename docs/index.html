@@ -2446,8 +2446,27 @@
       const data = parseResult(result);
       const messages = (data && data.messages) || [];
 
-      // 添付ファイル収集（全メッセージから・messageId と attachmentId も保持）
+      // 添付ファイル収集（ノイズを自動フィルタ）
+      // Outlook 署名画像、インライン埋め込み小画像、重複の同一ファイルを除外
+      const NOISE_PATTERNS = [
+        /^Outlook-(Image|signature|cid|attachment)/i,
+        /^image\d{3,}\.(png|jpe?g|gif)$/i,
+        /^attachment\.(png|jpe?g|gif)$/i,
+        /^logo[._-]?\d*\.(png|jpe?g|gif)$/i,
+        /^signature\.(png|jpe?g|gif)$/i,
+        /^banner\.(png|jpe?g|gif)$/i,
+        /^smime\.p7s$/i,
+        /^ATT\d+\.(png|jpe?g|gif)$/i,
+      ];
+      const isNoise = (name, size, mime) => {
+        const decoded = decodeMimeWord(name);
+        if (NOISE_PATTERNS.some(re => re.test(decoded))) return true;
+        // 画像で 30KB 以下は署名・装飾の可能性が高いのでフィルタ
+        if (/image\/(png|jpe?g|gif|webp|bmp)/i.test(mime || "") && size > 0 && size < 30 * 1024) return true;
+        return false;
+      };
       const allAtts = [];
+      const seenAttKeys = new Set();
       messages.forEach(msg => {
         const atts = msg.attachments || msg.attachment || msg.files || [];
         if (Array.isArray(atts)) {
@@ -2456,7 +2475,13 @@
             const size = a.size || a.fileSize || 0;
             const mime = a.mimeType || a.contentType || "";
             const attachmentId = a.attachmentId || a.id || null;
-            allAtts.push({ name: decodeMimeWord(name), size, mime, messageId: msg.id, attachmentId });
+            const decodedName = decodeMimeWord(name);
+            if (isNoise(name, size, mime)) return;  // ノイズ除外
+            // 重複除外（ファイル名+サイズで判定）
+            const key = decodedName + "|" + size;
+            if (seenAttKeys.has(key)) return;
+            seenAttKeys.add(key);
+            allAtts.push({ name: decodedName, size, mime, messageId: msg.id, attachmentId });
           });
         }
       });
