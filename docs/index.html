@@ -775,9 +775,10 @@
       <div class="modal-head">
         <div class="modal-title" id="modal-title">読み込み中…</div>
         <div class="modal-head-actions">
-          <a class="act-btn primary" id="mail-reply-sender" href="#" target="_blank" rel="noopener" title="Gmailで送信者のみに返信">↩ 送信者へ</a>
-          <a class="act-btn" id="mail-reply-all" href="#" target="_blank" rel="noopener" title="GmailでTo/Cc全員に返信">↩↩ 全員へ</a>
-          <a class="act-btn" id="mail-forward" href="#" target="_blank" rel="noopener" title="Gmailで転送">→ 転送</a>
+          <a class="act-btn primary" id="mail-reply-sender" href="#" title="Mail.appで送信者のみに返信">↩ 送信者へ</a>
+          <a class="act-btn" id="mail-reply-all" href="#" title="Mail.appでTo/Cc全員に返信">↩↩ 全員へ</a>
+          <a class="act-btn" id="mail-forward" href="#" title="Mail.appで転送">→ 転送</a>
+          <a class="act-btn" id="mail-reply-gmail" href="#" target="_blank" rel="noopener" title="Mail.appが開かない時はGmailで開く" style="background:#5C9A6F;color:#fff;border-color:#5C9A6F;">G</a>
           <button class="act-btn" id="copy-mailto-btn" title="送信者のアドレスをコピー">📋</button>
           <a class="act-btn" id="open-gmail-link" href="#" target="_blank" rel="noopener" title="Gmailでスレッドを開く">Gmail</a>
           <button class="close-btn" id="close-btn">×</button>
@@ -2374,28 +2375,32 @@
 
       state.replyData = { to: senderAddr, subject: replySubj, body: shortQuote };
 
-      // Gmail コンポーズ URL（Gmail Webでコンポーズ画面を開く・確実に動作）
-      // https://mail.google.com/mail/?view=cm&fs=1&to=...&su=...&body=...&cc=...
-      const GMAIL_BASE = "https://mail.google.com/mail/?view=cm&fs=1";
+      // mailto: URLを生成（macOS Mail.app で開く）
       // 1. 送信者のみに返信
-      const mailtoSender = GMAIL_BASE
-        + "&to=" + encodeURIComponent(senderAddr)
-        + "&su=" + encodeURIComponent(replySubj)
+      const mailtoSender = "mailto:" + encodeURIComponent(senderAddr)
+        + "?subject=" + encodeURIComponent(replySubj)
         + "&body=" + encodeURIComponent(shortQuote);
       // 2. 全員に返信
-      const mailtoAll = GMAIL_BASE
-        + "&to=" + encodeURIComponent(allTo.join(","))
-        + "&su=" + encodeURIComponent(replySubj)
+      const mailtoAll = "mailto:" + encodeURIComponent(allTo.join(","))
+        + "?subject=" + encodeURIComponent(replySubj)
         + (allCc.length ? "&cc=" + encodeURIComponent(allCc.join(",")) : "")
         + "&body=" + encodeURIComponent(shortQuote);
       // 3. 転送（宛先空、件名 Fwd:、本文に元メール）
-      const mailtoFwd = GMAIL_BASE
-        + "&su=" + encodeURIComponent(fwdSubj)
-        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 800)));
+      const mailtoFwd = "mailto:"
+        + "?subject=" + encodeURIComponent(fwdSubj)
+        + "&body=" + encodeURIComponent("\n\n" + _signatureBlock + "\n\n--- 転送 ---\nFrom: " + senderName(lastMsg.sender) + " <" + senderAddr + ">\nSubject: " + rawSubj + "\n\n" + ((lastMsg.plaintextBody || lastMsg.body || lastMsg.snippet || "").replace(/<[^>]+>/g, "").slice(0, 200)));
+      // Gmail コンポーズ URL（バックアップ。Mail.appが起動しない時用）
+      const GMAIL_BASE = "https://mail.google.com/mail/?view=cm&fs=1";
+      const gmailSender = GMAIL_BASE
+        + "&to=" + encodeURIComponent(senderAddr)
+        + "&su=" + encodeURIComponent(replySubj)
+        + "&body=" + encodeURIComponent(shortQuote);
 
       document.getElementById("mail-reply-sender").href = mailtoSender;
       document.getElementById("mail-reply-all").href = mailtoAll;
       document.getElementById("mail-forward").href = mailtoFwd;
+      const gmailBackupBtn = document.getElementById("mail-reply-gmail");
+      if (gmailBackupBtn) gmailBackupBtn.href = gmailSender;
       // 全員返信ボタンは To/Cc に他に誰もいなければ無効化
       const replyAllBtn = document.getElementById("mail-reply-all");
       if (allTo.length <= 1 && allCc.length === 0) {
@@ -2422,20 +2427,27 @@
     if (e.target.id === "modal-bg") closeModal();
   });
 
-  // 3つの返信ボタン：Gmail Web を新タブで開く（target="_blank" + rel="noopener"）
-  // mailto: は環境依存で動かないことが多いので、Gmail のコンポーズ画面に直接ジャンプ。
-  // 100% 動作する。Gmail に未ログインなら一度ログイン画面が出るが、署名付きで全項目埋まる。
+  // 3つの mailto ボタン：Mail.app で開く（複数の方式を併用して確実に発火）
   ["mail-reply-sender", "mail-reply-all", "mail-forward"].forEach(id => {
     document.getElementById(id).addEventListener("click", (e) => {
+      e.preventDefault();
+      const href = e.currentTarget.href;
       const toast = document.getElementById("toast-area");
       const labelMap = {
         "mail-reply-sender": "送信者へ返信",
         "mail-reply-all": "全員に返信",
         "mail-forward": "転送"
       };
-      toast.innerHTML = '<div class="toast">📧 ' + labelMap[id] + ' を Gmail で開きました（新しいタブ）</div>';
-      // <a target="_blank"> のネイティブ動作で開く。preventDefault しない。
+      toast.innerHTML = '<div class="toast">✉️ ' + labelMap[id] + ' を Mail.app で開きます…開かない場合は右の <strong>G</strong> ボタンで Gmail Web を使ってください</div>';
+      // 方式1: location.href で直接遷移（最も信頼性が高い）
+      try { window.location.href = href; } catch(err) {}
     });
+  });
+  // Gmail バックアップボタン（mailto: が動かない環境用）
+  const gmailBtn = document.getElementById("mail-reply-gmail");
+  if (gmailBtn) gmailBtn.addEventListener("click", (e) => {
+    const toast = document.getElementById("toast-area");
+    toast.innerHTML = '<div class="toast">📧 Gmail Web のコンポーズ画面を新しいタブで開きました</div>';
   });
 
   // 送信者アドレスをクリップボードへコピー
