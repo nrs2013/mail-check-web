@@ -1492,11 +1492,17 @@
   // 本文冒頭に自分の名前が出てくるメールを判定（先頭限定で誤検知を防ぐ）
   // 例：「<姓>様」「<姓>さん」始まりはMATCH／「Amazon.co.jp <姓><名> 様」始まりはNOT MATCH
   function startsWithNomura(thread) {
+    // スレッド内のいずれか1通でも 野村宛で始まっていればMATCH
+    // （最初は野村宛でも、返信スレッドの最後が他人宛になることがあるため）
     const msgs = thread.messages || [];
-    const last = msgs[msgs.length - 1] || {};
-    let snippet = (last.snippet || "").replace(/<[^>]+>/g, "").trim();
-    if (!snippet) return false;
-    return buildSurnameRegex(true).test(snippet) || buildSurnameStartRegex().test(snippet);
+    const re1 = buildSurnameRegex(true);
+    const re2 = buildSurnameStartRegex();
+    for (const m of msgs) {
+      let snippet = (m.snippet || "").replace(/<[^>]+>/g, "").trim();
+      if (!snippet) continue;
+      if (re1.test(snippet) || re2.test(snippet)) return true;
+    }
+    return false;
   }
 
   document.getElementById("filter-" + currentFilter).classList.add("active");
