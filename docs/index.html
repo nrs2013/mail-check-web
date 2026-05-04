@@ -795,12 +795,26 @@
       const orig = JSON.parse(localStorage.getItem("mailDashSettings_v1") || "{}");
       if (s.userEmail) orig.email = s.userEmail;
       if (s.userSurname) orig.surname = s.userSurname;
-      if (!orig.givenNames) orig.givenNames = "";
-      if (!orig.orgDomain) orig.orgDomain = "";
-      if (!orig.orgName) orig.orgName = "";
+      // 既に空文字で保存されていた場合も含めて、空ならデフォルトを入れる
+      if (!orig.givenNames) orig.givenNames = "裕紀,ヒロノリ,ひろのり,ヒロ";
+      if (!orig.orgDomain) orig.orgDomain = "nrs1.jp";
+      if (!orig.orgName) orig.orgName = "NRS";
       localStorage.setItem("mailDashSettings_v1", JSON.stringify(orig));
     } catch(e) {}
   }
+  // 起動時：mailDashSettings_v1 が空フィールドで保存されていたら自動で復活させる
+  function _healOriginalSettings() {
+    try {
+      const orig = JSON.parse(localStorage.getItem("mailDashSettings_v1") || "null");
+      if (!orig) return; // まだ存在しない → 何もしない（DEFAULT_SETTINGS が効く）
+      let changed = false;
+      if (!orig.orgDomain) { orig.orgDomain = "nrs1.jp"; changed = true; }
+      if (!orig.orgName)   { orig.orgName   = "NRS"; changed = true; }
+      if (!orig.givenNames){ orig.givenNames= "裕紀,ヒロノリ,ひろのり,ヒロ"; changed = true; }
+      if (changed) localStorage.setItem("mailDashSettings_v1", JSON.stringify(orig));
+    } catch(e) {}
+  }
+  _healOriginalSettings();
   // Token storage
   function _saveToken(token, expiresIn) {
     sessionStorage.setItem(WEB_TOKEN_KEY, JSON.stringify({ token, exp: Date.now() + expiresIn * 1000 }));
