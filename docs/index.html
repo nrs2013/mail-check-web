@@ -1338,7 +1338,7 @@
       const s = _loadWebSettings();
       if (!s.geminiKey) throw new Error("Gemini APIキー未設定。設定欄から登録してください。");
       const userContent = prompt + (items ? ("\n\n" + JSON.stringify(items)) : "");
-      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(s.geminiKey), {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + encodeURIComponent(s.geminiKey), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1394,7 +1394,7 @@
       out.style.display = "block"; out.textContent = "Gemini 呼び出し中…";
       try {
         const t0 = Date.now();
-        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(gk), {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + encodeURIComponent(gk), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: "「こんにちは」とだけ答えてください" }] }], generationConfig: { maxOutputTokens: 50 } })
