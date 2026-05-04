@@ -2206,6 +2206,8 @@
   // モーダル：メール表示専用（編集UI無し）
   async function openThread(thread) {
     if (!thread) return;
+    // virtual item の場合は parent の threadId を使う
+    const realThreadId = thread.threadId || thread.id;
     state.currentThread = thread;
     document.getElementById("modal-bg").classList.add("show");
     const firstMsg = thread.messages && thread.messages[0];
@@ -2213,10 +2215,10 @@
     document.getElementById("modal-body").innerHTML = '<div class="loading-text">読み込み中…</div>';
     document.getElementById("toast-area").innerHTML = "";
     document.getElementById("attachments-area").innerHTML = "";
-    document.getElementById("open-gmail-link").href = "https://mail.google.com/mail/u/0/#inbox/" + thread.id;
+    document.getElementById("open-gmail-link").href = "https://mail.google.com/mail/u/0/#inbox/" + realThreadId;
 
     try {
-      const result = await window.cowork.callMcpTool(GET_THREAD_TOOL, { threadId: thread.id, messageFormat: "FULL_CONTENT" });
+      const result = await window.cowork.callMcpTool(GET_THREAD_TOOL, { threadId: realThreadId, messageFormat: "FULL_CONTENT" });
       const data = parseResult(result);
       const messages = (data && data.messages) || [];
 
@@ -2492,21 +2494,61 @@
     // ブロック中ピル更新
     updateBlockedPill();
 
-    // 野村宛 を to+cc から抽出
-    const nomuraMap = new Map();
-    (state.to.threads || []).forEach(t => { if (startsWithNomura(t)) nomuraMap.set(t.id, t); });
-    (state.cc.threads || []).forEach(t => { if (startsWithNomura(t)) nomuraMap.set(t.id, t); });
-    const nomuraThreads = Array.from(nomuraMap.values()).sort((a, b) => {
+    // 野村宛 を to+cc から抽出（スレッド内の各「野村あて」メッセージを別カードに展開）
+    const _nomuraVirtual = [];
+    const _nomuraSeenIds = new Set();
+    const nomuraThreadIds = new Set();
+    const _re1NM = buildSurnameRegex(true);
+    const _re2NM = buildSurnameStartRegex();
+    const _expandNomura = (thread) => {
+      const msgs = thread.messages || [];
+      const nomuraMsgs = msgs.filter(m => {
+        const s = (m.snippet || "").replace(/<[^>]+>/g, "").trim();
+        return _re1NM.test(s) || _re2NM.test(s);
+      });
+      if (nomuraMsgs.length === 0) return;
+      nomuraThreadIds.add(thread.id);
+      nomuraMsgs.forEach((msg, j) => {
+        const vid = thread.id + "_" + (msg.id || ("idx" + msgs.indexOf(msg)));
+        if (_nomuraSeenIds.has(vid)) return;
+        _nomuraSeenIds.add(vid);
+        _nomuraVirtual.push({
+          id: vid,
+          threadId: thread.id,
+          messages: [msg],
+          _kind: thread._kind || "loading",
+          _attachmentDetails: thread._attachmentDetails,
+          _fullBodyByMsgId: thread._fullBodyByMsgId,
+          _originalThread: thread,
+          _threadMsgCount: msgs.length
+        });
+      });
+    };
+    (state.to.threads || []).forEach(_expandNomura);
+    (state.cc.threads || []).forEach(_expandNomura);
+    const nomuraThreads = _nomuraVirtual.sort((a, b) => {
       const da = lastMessageOf(a).date || "";
       const db = lastMessageOf(b).date || "";
       return String(db).localeCompare(String(da));
     });
     state.nomura.threads = nomuraThreads;
+    // 親スレッドのリスト（ローダー用にユニーク化）
+    state.nomura.parentThreads = (function(){
+      const seen = new Set();
+      const arr = [];
+      [...(state.to.threads || []), ...(state.cc.threads || [])].forEach(t => {
+        if (nomuraThreadIds.has(t.id) && !seen.has(t.id)) {
+          seen.add(t.id);
+          arr.push(t);
+        }
+      });
+      return arr;
+    })();
 
     // NRSから を to+cc から抽出（野村宛は除く）
     const nrsMap = new Map();
-    (state.to.threads || []).forEach(t => { if (!nomuraMap.has(t.id) && isFromNrs(t)) nrsMap.set(t.id, t); });
-    (state.cc.threads || []).forEach(t => { if (!nomuraMap.has(t.id) && isFromNrs(t)) nrsMap.set(t.id, t); });
+    (state.to.threads || []).forEach(t => { if (!nomuraThreadIds.has(t.id) && isFromNrs(t)) nrsMap.set(t.id, t); });
+    (state.cc.threads || []).forEach(t => { if (!nomuraThreadIds.has(t.id) && isFromNrs(t)) nrsMap.set(t.id, t); });
     const nrsThreads = Array.from(nrsMap.values()).sort((a, b) => {
       const da = lastMessageOf(a).date || "";
       const db = lastMessageOf(b).date || "";
@@ -2514,8 +2556,8 @@
     });
     state.nrs.threads = nrsThreads;
 
-    const toFiltered = (state.to.threads || []).filter(t => !nomuraMap.has(t.id) && !nrsMap.has(t.id));
-    const ccFiltered = (state.cc.threads || []).filter(t => !nomuraMap.has(t.id) && !nrsMap.has(t.id));
+    const toFiltered = (state.to.threads || []).filter(t => !nomuraThreadIds.has(t.id) && !nrsMap.has(t.id));
+    const ccFiltered = (state.cc.threads || []).filter(t => !nomuraThreadIds.has(t.id) && !nrsMap.has(t.id));
 
     // カラム件数表示更新
     const visibleCount = (arr) => arr.filter(t => !(hideAds && t._kind === "ad")).length;
@@ -2798,7 +2840,7 @@
       summaryHtml = '<div class="summary snippet-3line">' + escapeHtml((last.snippet || "").slice(0, 240)) + '</div>';
     }
     const senderEmailStr = senderEmail(last.sender);
-    const hasAtt = state.attachmentIds.has(t.id);
+    const hasAtt = state.attachmentIds.has(t.threadId || t.id);
     const attIcon = hasAtt ? '<span class="att-icon" title="添付ファイルあり">📎</span>' : '';
 
     // 野村宛(isLongSummary)：添付ファイル個数を表示（Gmail MCPはファイル名を返さないため個数のみ）
@@ -2898,9 +2940,9 @@
     // 1. Dropbox等のファイル共有リンク完全URL取得
     loadFullFileLinks(allThreads).then(() => renderColumns()).catch(()=>{});
     // 2. 野村宛の添付ファイル名取得
-    loadAttachmentDetailsForNomura(state.nomura.threads).then(() => renderColumns()).catch(()=>{});
-    loadFullBodyForNomura(state.nomura.threads).then(() => renderColumns()).catch(()=>{});
-    const nomuraCount = state.nomura.threads.length;
+    loadAttachmentDetailsForNomura(state.nomura.parentThreads || []).then(() => renderColumns()).catch(()=>{});
+    loadFullBodyForNomura(state.nomura.parentThreads || []).then(() => renderColumns()).catch(()=>{});
+    const nomuraCount = state.nomura.threads.length;  // virtual item count
     const nrsCount = state.nrs.threads.length;
     const nomuraReply = state.nomura.threads.filter(t => t._kind === "reply").length;
     const sn = (settings.surname || "自分");
