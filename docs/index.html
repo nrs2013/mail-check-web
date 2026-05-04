@@ -2488,6 +2488,44 @@
             '</div>';
           }).join("") +
         '</div>';
+        // 画像系の添付は自動でインライン表示（プレビュー）
+        const previewArea = document.createElement('div');
+        previewArea.className = 'inline-att-preview';
+        previewArea.style.cssText = 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;';
+        attArea.appendChild(previewArea);
+        const tok = JSON.parse(localStorage.getItem("mailCheckWebToken_v1") || "null");
+        const imageAtts = allAtts.filter(a => /image\/(png|jpe?g|gif|webp|bmp|heic)/i.test(a.mime || "") && a.messageId && a.attachmentId);
+        imageAtts.forEach(async (att) => {
+          if (!tok || !tok.token) return;
+          const placeholder = document.createElement('div');
+          placeholder.style.cssText = 'width:140px;height:140px;background:var(--bg);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:11px;';
+          placeholder.textContent = '読込中…';
+          previewArea.appendChild(placeholder);
+          try {
+            const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + att.messageId + "/attachments/" + att.attachmentId, {
+              headers: { Authorization: "Bearer " + tok.token }
+            });
+            if (!r.ok) throw new Error("img fetch fail");
+            const d = await r.json();
+            const b64 = (d.data || "").replace(/-/g, "+").replace(/_/g, "/");
+            const bin = atob(b64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            const blob = new Blob([arr], { type: att.mime || "image/png" });
+            const url = URL.createObjectURL(blob);
+            placeholder.innerHTML = '';
+            placeholder.style.cssText = 'cursor:zoom-in;border-radius:6px;overflow:hidden;border:1px solid var(--border);';
+            placeholder.title = att.name + ' (クリックで拡大)';
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = 'width:140px;height:140px;object-fit:cover;display:block;';
+            placeholder.appendChild(img);
+            placeholder.addEventListener('click', () => window.open(url, '_blank'));
+          } catch(e) {
+            placeholder.textContent = '読込失敗';
+            placeholder.style.color = '#d97766';
+          }
+        });
         // 添付チップに onclick を仕掛ける
         const chips = attArea.querySelectorAll('.att-chip');
         chips.forEach((chip, idx) => {
