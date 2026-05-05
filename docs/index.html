@@ -1403,11 +1403,20 @@
       // MCP 形式にラップ
       return { content: [{ type: "text", text: JSON.stringify(data) }] };
     },
-    async askClaude(prompt, items) {
+    async askClaude(prompt, items, opts) {
       // Gemini 専用（無料枠で動かすため Claude API は呼ばない）
+      // opts: { responseMimeType: "application/json"|null, maxOutputTokens: number, temperature: number }
+      // - responseMimeType=null を指定するとプレーンテキスト用（PIC UP! 要約等）
+      // - 既定は従来通り application/json（メール分類用）
       const s = _loadWebSettings();
       if (!s.geminiKey) throw new Error("Gemini APIキー未設定。設定欄から登録してください。");
       const userContent = prompt + (items ? ("\n\n" + JSON.stringify(items)) : "");
+      const _opts = opts || {};
+      const _useJson = (_opts.responseMimeType === undefined) ? true : (_opts.responseMimeType !== null);
+      const _maxTokens = _opts.maxOutputTokens || 8192;
+      const _temp = (_opts.temperature !== undefined) ? _opts.temperature : 0.2;
+      const _genConfig = { maxOutputTokens: _maxTokens, temperature: _temp };
+      if (_useJson) _genConfig.responseMimeType = "application/json";
       // モデルフォールバック順：429（RESOURCE_EXHAUSTED）が出たら次のモデルに自動で切り替える
       // 上から順に試す：本来一番枠が広いはずの flash-lite → 2.0-flash → 2.0-flash-lite → 1.5-flash
       // 一度成功した（or 429以外で失敗した）モデルがあれば、そのセッション中はそれを優先（同一セッション内キャッシュ）
@@ -1431,7 +1440,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ parts: [{ text: userContent }] }],
-              generationConfig: { maxOutputTokens: 8192, temperature: 0.2, responseMimeType: "application/json" }
+              generationConfig: _genConfig
             })
           });
           if (r.status === 429) {
@@ -3810,7 +3819,12 @@
     const promptText = "あなたはコンサート演出家のメール仕分けアシスタントです。進行中の案件「" + c.name + "」について、添付されたメール群から現状を要約してください。\n\n要件：\n- 日本語200〜300字\n- 「最新の動き」「決定事項」「未解決の懸念」「次のアクション」が分かるように\n- 固有名詞・日付・数字は具体的に\n- 古い情報より新しい情報を優先\n- 説明文や前置き不要、要約本文のみを返答\n- マークダウン記号やJSON記号は使わない、プレーンテキストのみ";
 
     try {
-      const result = await window.cowork.askClaude(promptText, items);
+      // 要約はプレーンテキスト用：responseMimeType を外し、出力上限を絞り、temperature を上げてループ防止
+      const result = await window.cowork.askClaude(promptText, items, {
+        responseMimeType: null,
+        maxOutputTokens: 800,
+        temperature: 0.5
+      });
       let text = result;
       if (typeof result === "object") {
         if (result.content && Array.isArray(result.content)) {
@@ -3822,6 +3836,13 @@
       let cleaned = String(text).trim();
       // markdown code fence を剥がす
       cleaned = cleaned.replace(/^```[a-z]*\s*/i, "").replace(/\s*```\s*$/, "").trim();
+      // === 安全網：LLMがループに陥った時用（同じフレーズが3回以上連続したら切る）===
+      // 例：「照明担当者への 照明担当者への 照明担当者への ...」を検出して、ループ前で打ち切り
+      const loopMatch = cleaned.match(/(.{6,80}?)\1{2,}/);
+      if (loopMatch) {
+        const idx = cleaned.indexOf(loopMatch[0]);
+        cleaned = cleaned.substring(0, idx + loopMatch[1].length).trim() + "…（要約途中で繰り返しを検出したので打ち切り）";
+      }
       // JSON でラップされていた場合は中の summary を抽出（保険）
       if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
         try {
