@@ -1464,8 +1464,20 @@
           continue;
         }
       }
-      // 全モデルで失敗した場合、ユーザーに分かりやすいエラーで返す
-      throw new Error("Gemini API 429: 全モデルが本日のクォータ上限に到達しました。日本時間16-17時頃にリセットされます。\n試した順: " + errors.join(" / "));
+      // 全モデルで失敗した場合、何のエラーが多かったか判定して分かりやすく返す
+      const has429 = errors.some(e => / 429$/.test(e));
+      const has400 = errors.some(e => / 400$/.test(e) || / 401$/.test(e) || / 403$/.test(e));
+      let summary;
+      if (has429 && !has400) {
+        summary = "Gemini API 429: 全モデルが本日のクォータ上限に到達しました。日本時間16-17時頃にリセットされます。";
+      } else if (has400 && !has429) {
+        summary = "Gemini API キーが無効、または権限が足りません。設定の Gemini API キーを確認してください（AI Studio で発行し直したキーが正しく貼り付けられているか）。";
+      } else if (has400 && has429) {
+        summary = "Gemini API: キーが無効 + クォータ上限が混在。まずキーが正しいか確認してください。";
+      } else {
+        summary = "Gemini API: 全モデルで失敗。ネットワーク or サービス側の問題かもしれません。";
+      }
+      throw new Error(summary + "\n試した順: " + errors.join(" / "));
     }
   };
 
