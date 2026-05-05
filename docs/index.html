@@ -855,6 +855,12 @@
     return false;
   }
   // OAuth init
+  // 1) 既存トークンが期限内なら即起動（再ログイン不要）
+  // 2) 期限切れなら裏でサイレント再認証 (prompt: "") を自動で投げる
+  //    成功すればポップアップ無しで再開、失敗したらログイン画面を出す
+  // これでアプリを開く度の「Googleでログイン」ボタン押し下げを最小化
+  let _silentReauthTimer = null;
+  let _silentReauthInFlight = false;
   function _initOAuth() {
     if (typeof google === "undefined" || !google.accounts) {
       setTimeout(_initOAuth, 200); return;
@@ -863,19 +869,73 @@
       client_id: WEB_OAUTH_CLIENT_ID,
       scope: WEB_OAUTH_SCOPES,
       callback: (resp) => {
-        if (resp.error) { alert("ログインエラー: " + resp.error); return; }
+        _silentReauthInFlight = false;
+        if (resp.error) {
+          // サイレント再認証が失敗した場合は alert を出さず、ログイン画面を見せて手動操作を促す
+          // （prompt:"" を最初に試すフローなので、初回失敗は普通にあり得る）
+          if (resp.error === "popup_closed_by_user" || resp.error === "user_cancelled" || resp.error === "access_denied" || resp.error === "interaction_required" || resp.error === "login_required" || resp.error === "consent_required") {
+            _showLoginVeil();
+            return;
+          }
+          alert("ログインエラー: " + resp.error);
+          return;
+        }
         _accessToken = resp.access_token;
         _saveToken(_accessToken, resp.expires_in);
         _hideLoginVeil();
+        // 期限の少し前にバックグラウンドで再取得を試みる（サイレント延命）
+        // expires_in は秒。例：3600 → 55分後に裏でサイレント再認証
+        if (_silentReauthTimer) clearTimeout(_silentReauthTimer);
+        const refreshAt = Math.max(60, (resp.expires_in || 3600) - 5 * 60) * 1000;
+        _silentReauthTimer = setTimeout(() => {
+          if (_tokenClient && !_silentReauthInFlight) {
+            _silentReauthInFlight = true;
+            try { _tokenClient.requestAccessToken({ prompt: "" }); } catch(e) { _silentReauthInFlight = false; }
+          }
+        }, refreshAt);
         // Drive から 設定 + PIC UP! を pull してから refresh
         const pullChain = (window._mailCheckDrivePullSettings ? window._mailCheckDrivePullSettings() : Promise.resolve())
           .then(() => window._mailCheckDrivePullCases ? window._mailCheckDrivePullCases() : Promise.resolve())
           .finally(() => { if (typeof refresh === "function") refresh(); });
       },
     });
+    // ===== ページロード直後の自動ログイン =====
+    // localStorage に有効なトークンが残ってればそのまま即起動（最速）
+    if (_restoreToken()) {
+      _hideLoginVeil();
+      // Drive 同期 → メール再取得
+      const pullChain = (window._mailCheckDrivePullSettings ? window._mailCheckDrivePullSettings() : Promise.resolve())
+        .then(() => window._mailCheckDrivePullCases ? window._mailCheckDrivePullCases() : Promise.resolve())
+        .finally(() => { if (typeof refresh === "function") refresh(); });
+      // 残り時間に応じて裏で再認証を仕込む
+      try {
+        const c = JSON.parse(localStorage.getItem(WEB_TOKEN_KEY) || "null");
+        if (c && c.exp) {
+          const remainMs = c.exp - Date.now();
+          const refreshAt = Math.max(60 * 1000, remainMs - 5 * 60 * 1000);
+          if (_silentReauthTimer) clearTimeout(_silentReauthTimer);
+          _silentReauthTimer = setTimeout(() => {
+            if (_tokenClient && !_silentReauthInFlight) {
+              _silentReauthInFlight = true;
+              try { _tokenClient.requestAccessToken({ prompt: "" }); } catch(e) { _silentReauthInFlight = false; }
+            }
+          }, refreshAt);
+        }
+      } catch(e) {}
+      return;
+    }
+    // トークン無し or 期限切れ → サイレント認証を試みる（同意済みなら裏で通る）
+    // 失敗したら callback 内でログイン画面を表示する
+    setTimeout(() => {
+      if (!_accessToken && _tokenClient && !_silentReauthInFlight) {
+        _silentReauthInFlight = true;
+        try { _tokenClient.requestAccessToken({ prompt: "" }); } catch(e) { _silentReauthInFlight = false; _showLoginVeil(); }
+      }
+    }, 200);
   }
   function _login() {
     if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
+    _silentReauthInFlight = false; // 手動押下時は同意フローもOK
     _tokenClient.requestAccessToken({ prompt: _accessToken ? "" : "consent" });
   }
   function _logout() {
