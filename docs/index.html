@@ -660,7 +660,10 @@
     <label>
       <strong style="color:#5C9A6F;">Gemini API キー</strong>（無料枠で動作・課金なし）
       <small>取得：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey</a> → Create API key</small>
-      <input type="password" id="login-gemini-key" placeholder="AIzaSy..." autocomplete="off">
+      <div style="display:flex;gap:6px;align-items:stretch;margin-top:4px;">
+        <input type="text" id="login-gemini-key" placeholder="AIzaSy..." autocomplete="off" spellcheck="false" style="flex:1;font-family:ui-monospace,monospace;letter-spacing:0.3px;">
+        <button type="button" id="login-gemini-copy" title="クリップボードへコピー" style="padding:8px 12px;background:rgba(92,154,111,0.15);color:#5C9A6F;border:1px solid #5C9A6F;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">📋 コピー</button>
+      </div>
     </label>
     <input type="hidden" id="login-claude-key" value="">
     <label>
@@ -1484,6 +1487,29 @@
   // ===== ログイン UI イベント =====
   document.addEventListener("DOMContentLoaded", () => {
     _initOAuth();
+    // Geminiキーのコピーボタン（クリップボードへ一発コピー）
+    const copyBtn = document.getElementById("login-gemini-copy");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        const input = document.getElementById("login-gemini-key");
+        const val = (input && input.value) || "";
+        if (!val) {
+          copyBtn.textContent = "（キー未入力）";
+          setTimeout(() => { copyBtn.textContent = "📋 コピー"; }, 1500);
+          return;
+        }
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(val);
+          ok = true;
+        } catch(e) {
+          // フォールバック：input を選択して旧API でコピー
+          try { input.select(); document.execCommand("copy"); ok = true; } catch(_) {}
+        }
+        copyBtn.textContent = ok ? "✓ コピー済" : "✗ 失敗";
+        setTimeout(() => { copyBtn.textContent = "📋 コピー"; }, 1500);
+      });
+    }
     // ログインカードのテスト・保存・ログイン処理
     const btnG = document.getElementById("login-google-btn");
     const btnTest = document.getElementById("login-test-claude");
