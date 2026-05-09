@@ -962,7 +962,8 @@
     const sn = document.getElementById("login-surname");
     if (sn) sn.value = s.userSurname || "野村";
     // === 既に設定済みなら3項目フォームを隠してワンクリックUIにする ===
-    const isReturning = !!(s.claudeKey && s.userEmail && s.userSurname);
+    // Claude キー廃止につき、判定は Gemini キー基準に変更
+    const isReturning = !!(s.geminiKey && s.userEmail && s.userSurname);
     document.querySelectorAll("#login-veil .login-card label").forEach(el => {
       el.style.display = isReturning ? "none" : "";
     });
@@ -1525,12 +1526,15 @@
     const btnLogout = document.getElementById("web-logout-btn");
     if (btnG) btnG.addEventListener("click", () => {
       const s = _loadWebSettings();
+      // Claude キーは廃止済みのためチェックしない（hidden input は互換のために残す）
       const claudeKey = ((document.getElementById("login-claude-key") || {}).value || s.claudeKey || "").trim();
-      const email = (document.getElementById("login-email").value || "").trim();
-      const surname = (document.getElementById("login-surname").value || "").trim();
-      const signature = (document.getElementById("login-signature").value || "").trim();
-      if (!claudeKey || !email || !surname) { alert("3項目すべて入力してください"); return; }
-      const geminiKey = (document.getElementById("login-gemini-key") && document.getElementById("login-gemini-key").value || "").trim(); _saveWebSettings({ ...s, claudeKey, geminiKey, userEmail: email, userSurname: surname, userSignature: signature });
+      const email = ((document.getElementById("login-email") || {}).value || s.userEmail || "").trim();
+      const surname = ((document.getElementById("login-surname") || {}).value || s.userSurname || "").trim();
+      const signature = ((document.getElementById("login-signature") || {}).value || s.userSignature || "").trim();
+      const geminiKey = ((document.getElementById("login-gemini-key") || {}).value || s.geminiKey || "").trim();
+      if (!geminiKey) { alert("Gemini APIキーを入力してください"); return; }
+      if (!email || !surname) { alert("メアドと姓を入力してください"); return; }
+      _saveWebSettings({ ...s, claudeKey, geminiKey, userEmail: email, userSurname: surname, userSignature: signature });
       _syncToOriginalSettings({ userEmail: email, userSurname: surname });
       // 元の設定キーも更新（applySettingsToUI を呼び直す）
       try {
