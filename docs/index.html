@@ -3416,7 +3416,9 @@
           .replace(/&#39;/g, "'")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
-        summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:140px;overflow-y:auto;overscroll-behavior:contain;" onclick="event.stopPropagation()">' + escapeHtml(cleaned) + '</div>';
+        // 本文部分も「カード全体クリック=モーダル開く」を妨げないように stopPropagation を削除
+        // （以前は本文部分の上をクリックするとモーダルが開かない仕様だったが、サムネ確認ニーズで開けるべき）
+        summaryHtml = '<div class="summary long" style="white-space:pre-wrap;max-height:140px;overflow-y:auto;overscroll-behavior:contain;">' + escapeHtml(cleaned) + '</div>';
       } else if (t._fullBodyByMsgId === undefined) {
         // 取得中
         summaryHtml = '<div class="summary placeholder">本文取得中…</div>';
