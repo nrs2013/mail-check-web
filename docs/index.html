@@ -5,7 +5,20 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
 <link rel="apple-touch-icon" href="apple-touch-icon.svg?v=2">
 <meta name="theme-color" content="#d4925a">
+<!-- PWA: Mac の Dock 等にインストールできるように manifest を紐付け -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mail-Check!">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Mail-Check!</title>
+<!-- Service Worker 登録（PWA 要件） -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 <!-- PDF.js: PDF添付の1ページ目をサムネ化するために使う -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>

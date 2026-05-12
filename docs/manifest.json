@@ -1,0 +1,26 @@
+{
+  "name": "Mail-Check! Web",
+  "short_name": "Mail-Check!",
+  "description": "コンサート演出家・野村専用のメール仕分けダッシュボード",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#d4925a",
+  "background_color": "#1a1a1a",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
