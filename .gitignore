@@ -3,3 +3,7 @@
 .DS_Store
 *.log
 node_modules
+
+# 引き継ぎメモは秘匿情報（API キー、PAT 等）を含む可能性があるので公開しない
+MAIL-CHECK-引き継ぎ*.md
+MAIL-CHECK-Cowork*.md
