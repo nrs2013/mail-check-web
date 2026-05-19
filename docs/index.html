@@ -1164,11 +1164,17 @@
     const merged = { ...remote, ...local };
     // 空のフィールドは Drive 側で埋める
     if (!merged.claudeKey && remote.claudeKey) merged.claudeKey = remote.claudeKey;
+    if (!merged.geminiKey && remote.geminiKey) merged.geminiKey = remote.geminiKey;
     if (!merged.userEmail && remote.userEmail) merged.userEmail = remote.userEmail;
     if (!merged.userSurname && remote.userSurname) merged.userSurname = remote.userSurname;
     if (!merged.userSignature && remote.userSignature) merged.userSignature = remote.userSignature;
     delete merged.savedAt;
     _saveWebSettings(merged);
+    // 復元後にログイン UI のフィールドも更新（次回ログインボタン押す前に値が見えるように）
+    try {
+      const gk = document.getElementById("login-gemini-key");
+      if (gk && !gk.value) gk.value = merged.geminiKey || "";
+    } catch(e) {}
     // 元の Cowork 互換設定にも反映
     try {
       _syncToOriginalSettings({ userEmail: merged.userEmail, userSurname: merged.userSurname });
@@ -1556,8 +1562,8 @@
       const surname = ((document.getElementById("login-surname") || {}).value || s.userSurname || "").trim();
       const signature = ((document.getElementById("login-signature") || {}).value || s.userSignature || "").trim();
       const geminiKey = ((document.getElementById("login-gemini-key") || {}).value || s.geminiKey || "").trim();
-      if (!geminiKey) { alert("Gemini APIキーを入力してください"); return; }
-      if (!email || !surname) { alert("メアドと姓を入力してください"); return; }
+      // Gemini キー / メアド / 姓は localStorage 空でも Drive 同期で復元できるので必須にしない
+      // OAuth ログインを先に通して、Drive 同期で穴埋めする運用
       _saveWebSettings({ ...s, claudeKey, geminiKey, userEmail: email, userSurname: surname, userSignature: signature });
       _syncToOriginalSettings({ userEmail: email, userSurname: surname });
       // 元の設定キーも更新（applySettingsToUI を呼び直す）
