@@ -2802,8 +2802,12 @@
             const bin = atob(b64);
             const arr = new Uint8Array(bin.length);
             for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            // PDF.js は渡された TypedArray を内部で detach するので、レンダリング用と Blob 用に
+            // 別々のコピーを作って渡す。これをしないと後でクリック時の Blob が空データになる
+            const _bytesForRender = arr.slice();
+            const _bytesForViewer = arr.slice();
             // PDF.js でロード → 1ページ目を canvas に描画
-            const pdf = await window.pdfjsLib.getDocument({ data: arr }).promise;
+            const pdf = await window.pdfjsLib.getDocument({ data: _bytesForRender }).promise;
             const page = await pdf.getPage(1);
             const baseViewport = page.getViewport({ scale: 1 });
             // 140x140 にフィットさせるスケール（×2 でレティナ対応）
@@ -2825,8 +2829,8 @@
             badge.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);color:#fff;font-size:10px;padding:3px 4px;text-align:center;line-height:1;';
             badge.textContent = '📄 PDF · ' + (pdf.numPages > 1 ? (pdf.numPages + 'p') : '1p');
             placeholder.appendChild(badge);
-            // クリックで PDF を新タブ表示（取得済みバイナリ arr を blob 化して再fetchを回避）
-            const _pdfBlob = new Blob([arr], { type: 'application/pdf' });
+            // クリックで PDF を新タブ表示（取得済みバイナリの独立コピーを blob 化して再fetchを回避）
+            const _pdfBlob = new Blob([_bytesForViewer], { type: 'application/pdf' });
             const _pdfBlobUrl = URL.createObjectURL(_pdfBlob);
             placeholder.addEventListener('click', () => {
               window.open(_pdfBlobUrl, '_blank');
