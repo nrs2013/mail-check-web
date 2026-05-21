@@ -165,6 +165,7 @@
     color: var(--text-3); padding: 2px 8px; border-radius: 4px;
     font-size: 10px; cursor: pointer; font-family: inherit;
     line-height: 1.4;
+    transition: background .12s, border-color .12s, color .12s;
   }
   .case-actions .case-refresh {
     color: var(--accent); border-color: rgba(212, 146, 90, 0.35);
@@ -612,6 +613,8 @@
   .act-btn.primary:hover { background: #e8a570; border-color: #e8a570; }
   .act-btn.success { background: #5C9A6F; color: #FFFFFF !important; border-color: #5C9A6F; font-weight: 600; }
   .act-btn.success:hover { background: #4A8259; }
+  /* 無効状態（JS から style 直書きせずクラスでトグル） */
+  .act-btn.is-disabled { opacity: 0.4; pointer-events: none; }
   .toast { padding: 8px 12px; background: rgba(92,154,111,.10); color: #4A8259; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
   .toast.error { background: rgba(184,128,31,.14); color: var(--reply); }
   .hint { font-size: 11px; color: var(--text-3); margin-top: 8px; }
@@ -1401,20 +1404,37 @@
   }
 
 
-  // ページを閉じる直前：debounce 残っていたら送り切る
+  // ページを閉じる直前：debounce 残っていたら送り切る（案件 + 設定 の両方）
   window.addEventListener("beforeunload", () => {
-    if (_driveSaveTimer && _accessToken) {
+    if (!_accessToken) return;
+    // 案件側
+    if (_driveSaveTimer) {
       clearTimeout(_driveSaveTimer);
       _driveSaveTimer = null;
       try {
         const local = JSON.parse(localStorage.getItem("mailDashCases_v1") || "[]");
-        // sendBeacon は OAuth ヘッダー無理なので、同期版 fetch に近い keepalive で
         const body = JSON.stringify({ cases: local, savedAt: Date.now() });
         if (_driveFileId) {
           fetch(DRIVE_UPLOAD + "/files/" + _driveFileId + "?uploadType=media", {
             method: "PATCH",
             headers: { Authorization: "Bearer " + _accessToken, "Content-Type": "application/json" },
             body: body, keepalive: true
+          });
+        }
+      } catch(e) {}
+    }
+    // 設定側（Gemini キー・メアド・姓・署名）。debounce 中にタブ閉じられても Drive に送り出す
+    if (_driveSettingsSaveTimer) {
+      clearTimeout(_driveSettingsSaveTimer);
+      _driveSettingsSaveTimer = null;
+      try {
+        const localSettings = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+        const sBody = JSON.stringify({ ...localSettings, savedAt: Date.now() });
+        if (_driveSettingsFileId) {
+          fetch(DRIVE_UPLOAD + "/files/" + _driveSettingsFileId + "?uploadType=media", {
+            method: "PATCH",
+            headers: { Authorization: "Bearer " + _accessToken, "Content-Type": "application/json" },
+            body: sBody, keepalive: true
           });
         }
       } catch(e) {}
@@ -2736,6 +2756,8 @@
             for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
             const blob = new Blob([arr], { type: att.mime || "image/png" });
             const url = URL.createObjectURL(blob);
+            // 10 分後に blob URL を解放（メモリリーク防止）
+            setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
             placeholder.innerHTML = '';
             placeholder.style.cssText = 'cursor:zoom-in;border-radius:6px;overflow:hidden;border:1px solid var(--border);';
             placeholder.title = att.name + ' (クリックで拡大)';
@@ -2876,7 +2898,13 @@
               if (newTab && !newTab.closed) {
                 newTab.location.href = blobUrl;
               } else {
-                window.open(blobUrl, '_blank');
+                // 新タブを開けなかった場合（ポップアップブロック等）はダウンロードリンクで救済
+                const _a = document.createElement('a');
+                _a.href = blobUrl;
+                _a.download = att.name || 'attachment';
+                document.body.appendChild(_a);
+                _a.click();
+                document.body.removeChild(_a);
               }
               chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#5C9A6F;font-size:11px;">✓</span>');
               // 10 分後に blob URL を解放（メモリリーク防止）
@@ -2980,17 +3008,13 @@
       document.getElementById("mail-forward").href = mailtoFwd;
       const gmailBackupBtn = document.getElementById("mail-reply-gmail");
       if (gmailBackupBtn) gmailBackupBtn.href = gmailSender;
-      // 全員返信ボタンは To/Cc に他に誰もいなければ無効化
+      // 全員返信ボタンは To/Cc に他に誰もいなければ無効化（style 直書きせず CSS クラスでトグル）
       const replyAllBtn = document.getElementById("mail-reply-all");
-      if (allTo.length <= 1 && allCc.length === 0) {
-        replyAllBtn.style.opacity = "0.4";
-        replyAllBtn.style.pointerEvents = "none";
-        replyAllBtn.title = "他の宛先がいないため無効";
-      } else {
-        replyAllBtn.style.opacity = "";
-        replyAllBtn.style.pointerEvents = "";
-        replyAllBtn.title = "To " + allTo.length + "名 / Cc " + allCc.length + "名";
-      }
+      const replyAllDisabled = (allTo.length <= 1 && allCc.length === 0);
+      replyAllBtn.classList.toggle("is-disabled", replyAllDisabled);
+      replyAllBtn.title = replyAllDisabled
+        ? "他の宛先がいないため無効"
+        : "To " + allTo.length + "名 / Cc " + allCc.length + "名";
     } catch (e) {
       document.getElementById("modal-body").innerHTML = '<div class="error">取得失敗: ' + escapeHtml(e.message || "") + '</div>';
     }
@@ -3034,12 +3058,25 @@
     const r = state.replyData;
     const toast = document.getElementById("toast-area");
     if (!r || !r.to) { toast.innerHTML = '<div class="toast error">宛先が取得できませんでした</div>'; return; }
+    let ok = false;
     try {
       await navigator.clipboard.writeText(r.to);
-      toast.innerHTML = '<div class="toast">📋 ' + escapeHtml(r.to) + ' をコピーしました</div>';
+      ok = true;
     } catch(e) {
-      toast.innerHTML = '<div class="toast error">コピー失敗: ' + escapeHtml(r.to) + ' を手動でコピーしてください</div>';
+      // フォールバック：hidden input に値を入れて select + execCommand("copy")
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = r.to;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch(_) {}
     }
+    toast.innerHTML = ok
+      ? '<div class="toast">📋 ' + escapeHtml(r.to) + ' をコピーしました</div>'
+      : '<div class="toast error">コピー失敗: ' + escapeHtml(r.to) + ' を手動でコピーしてください</div>';
   });
 
   async function classifyAll(threads) {
@@ -3652,8 +3689,8 @@
     const sn = (settings.surname || "自分");
     const orgLabel = (settings.orgName || "自社");
     document.getElementById("stats").innerHTML =
-      '★' + sn + '宛 <strong>' + nomuraCount + '</strong> · 要返信 <strong>' + nomuraReply + '</strong>　/　' +
-      orgLabel + ' <strong>' + nrsCount + '</strong>';
+      '★' + escapeHtml(sn) + '宛 <strong>' + nomuraCount + '</strong> · 要返信 <strong>' + nomuraReply + '</strong>　/　' +
+      escapeHtml(orgLabel) + ' <strong>' + nrsCount + '</strong>';
 
   }
 
@@ -3683,8 +3720,14 @@
   }
   updateBlockedPill();
 
+  // ブロック関連ポップオーバーの「外側クリックで閉じる」用 listener を保持して二重登録を防ぐ
+  let _blockPopDocListener = null;
   function closeAllBlockPopovers() {
     document.querySelectorAll(".block-confirm-popover, .blocked-list-popover").forEach(el => el.remove());
+    if (_blockPopDocListener) {
+      document.removeEventListener("click", _blockPopDocListener, true);
+      _blockPopDocListener = null;
+    }
   }
 
   function openBlockConfirmPopover(domain, anchorBtn) {
@@ -3719,13 +3762,10 @@
     pop.querySelector(".cancel-btn").addEventListener("click", closeAllBlockPopovers);
 
     setTimeout(() => {
-      const onDocClick = (e) => {
-        if (!pop.contains(e.target)) {
-          closeAllBlockPopovers();
-          document.removeEventListener("click", onDocClick, true);
-        }
+      _blockPopDocListener = (e) => {
+        if (!pop.contains(e.target)) closeAllBlockPopovers();
       };
-      document.addEventListener("click", onDocClick, true);
+      document.addEventListener("click", _blockPopDocListener, true);
     }, 0);
   }
 
@@ -3777,13 +3817,10 @@
     });
 
     setTimeout(() => {
-      const onDocClick = (e) => {
-        if (!pop.contains(e.target) && e.target !== anchorBtn) {
-          closeAllBlockPopovers();
-          document.removeEventListener("click", onDocClick, true);
-        }
+      _blockPopDocListener = (e) => {
+        if (!pop.contains(e.target) && e.target !== anchorBtn) closeAllBlockPopovers();
       };
-      document.addEventListener("click", onDocClick, true);
+      document.addEventListener("click", _blockPopDocListener, true);
     }, 0);
   }
 
