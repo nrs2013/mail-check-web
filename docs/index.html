@@ -2701,7 +2701,7 @@
           allAtts.map((a, i) => {
             const downloadable = !!(a.messageId && a.attachmentId);
             const styleAttr = downloadable ? ' style="cursor:pointer;"' : '';
-            const titleAttr = downloadable ? 'クリックでGmailを開いてプレビュー' : '';
+            const titleAttr = downloadable ? 'クリックでブラウザで開く（Gmail を経由しない）' : '';
             return '<div class="att-chip" data-idx="' + i + '"' + styleAttr + ' title="' + titleAttr + '">' +
               '<span>' + iconFor(a.mime) + '</span>' +
               '<span class="att-name">' + escapeHtml(a.name) + '</span>' +
@@ -2818,18 +2818,22 @@
             // 完成サムネに差し替え
             placeholder.innerHTML = '';
             placeholder.style.cssText = 'cursor:pointer;border-radius:6px;overflow:hidden;border:1px solid var(--border);width:140px;height:140px;background:#fff;display:flex;align-items:center;justify-content:center;position:relative;';
-            placeholder.title = att.name + ' (クリックでGmailを開く)';
+            placeholder.title = att.name + ' (クリックでブラウザで開く)';
             placeholder.appendChild(canvas);
             // 下部に「📄 PDF」のバッジを重ねる
             const badge = document.createElement('div');
             badge.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);color:#fff;font-size:10px;padding:3px 4px;text-align:center;line-height:1;';
             badge.textContent = '📄 PDF · ' + (pdf.numPages > 1 ? (pdf.numPages + 'p') : '1p');
             placeholder.appendChild(badge);
-            // クリックで Gmail Web のスレッドを新タブで開く（ネイティブプレビュー）
+            // クリックで PDF を新タブ表示（取得済みバイナリ arr を blob 化して再fetchを回避）
+            const _pdfBlob = new Blob([arr], { type: 'application/pdf' });
+            const _pdfBlobUrl = URL.createObjectURL(_pdfBlob);
             placeholder.addEventListener('click', () => {
-              const realThreadId = (state.currentThread && (state.currentThread.threadId || state.currentThread.id)) || att.messageId;
-              window.open("https://mail.google.com/mail/u/0/#inbox/" + realThreadId, "_blank");
+              window.open(_pdfBlobUrl, '_blank');
             });
+            // モーダルが閉じられた時に解放したいが、Mail-Check! 全体で blob を保持しても問題ない量なので
+            // 10分後に自動解放（メモリリーク防止）
+            setTimeout(() => URL.revokeObjectURL(_pdfBlobUrl), 10 * 60 * 1000);
           } catch(e) {
             placeholder.innerHTML = '<div style="font-size:24px;">📄</div><div style="color:#d97766;">読込失敗</div>';
           }
@@ -2843,16 +2847,44 @@
             e.stopPropagation();
             const origHtml = chip.innerHTML;
             chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:var(--accent);font-size:11px;">…</span>');
+            // ポップアップブロッカー対策：click 直後に同期で新タブを開いて読込中表示
+            const newTab = window.open('about:blank', '_blank');
+            if (newTab) {
+              try {
+                newTab.document.title = att.name;
+                newTab.document.body.style.cssText = 'font-family:system-ui,-apple-system,sans-serif;color:#666;padding:24px;background:#1a1a1a;';
+                newTab.document.body.innerHTML = '<div style="font-size:14px;">📄 ' + escapeHtml(att.name) + ' を読み込み中…</div>';
+              } catch(_) {}
+            }
             try {
-              // Gmail Web で該当スレッドを開く → Gmail のネイティブプレビューで添付が見られる
-              // （ダウンロードされず、Chrome の PDF 設定にも影響されない）
-              const realThreadId = (state.currentThread && (state.currentThread.threadId || state.currentThread.id)) || att.messageId;
-              const gmailUrl = "https://mail.google.com/mail/u/0/#inbox/" + realThreadId;
-              window.open(gmailUrl, "_blank");
+              const tok = JSON.parse(localStorage.getItem("mailCheckWebToken_v1") || "null");
+              if (!tok || !tok.token) throw new Error("認証トークンが見つかりません");
+              const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + att.messageId + "/attachments/" + att.attachmentId, {
+                headers: { Authorization: "Bearer " + tok.token }
+              });
+              if (!r.ok) throw new Error("添付取得 " + r.status);
+              const d = await r.json();
+              const b64 = (d.data || "").replace(/-/g, "+").replace(/_/g, "/");
+              const bin = atob(b64);
+              const arr = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+              const blob = new Blob([arr], { type: att.mime || "application/octet-stream" });
+              const blobUrl = URL.createObjectURL(blob);
+              // PDF/画像はブラウザ内蔵ビューア、Office/ZIP 等はダウンロード扱いになる
+              if (newTab && !newTab.closed) {
+                newTab.location.href = blobUrl;
+              } else {
+                window.open(blobUrl, '_blank');
+              }
               chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#5C9A6F;font-size:11px;">✓</span>');
+              // 10 分後に blob URL を解放（メモリリーク防止）
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 10 * 60 * 1000);
             } catch(err) {
+              if (newTab && !newTab.closed) {
+                try { newTab.close(); } catch(_) {}
+              }
               chip.innerHTML = origHtml.replace(/<span style="margin-left[\s\S]*?<\/span>/, '<span style="margin-left:4px;color:#d97766;font-size:11px;">✗</span>');
-              alert("ダウンロード失敗: " + err.message);
+              alert("添付ファイルを開けませんでした: " + (err.message || err));
             }
           });
         });
