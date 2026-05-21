@@ -301,7 +301,8 @@
   .cell.empty-cell { color: var(--text-3); font-size: 11px; padding: 12px 8px; text-align: center; opacity: 0.4; }
   .item {
     padding: 10px 12px; border-radius: 7px; margin-bottom: 4px;
-    cursor: pointer; transition: background .12s;
+    cursor: pointer;
+    transition: background .12s, border-color .12s, box-shadow .12s;
     position: relative; border: 1px solid transparent;
   }
   .item:hover { background: var(--bg-hover); border-color: var(--border); }
