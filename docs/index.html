@@ -3594,20 +3594,29 @@
       fileLinksHtml = '<div class="file-links" style="display:flex;flex-wrap:wrap;gap:4px;">' +
         dedupedLinks.map(fl => {
           const isMulti = labelCounts[fl.label] > 1;
+          let num = '';
           if (isMulti) {
             labelIdx[fl.label] = (labelIdx[fl.label] || 0) + 1;
-            const num = circled[labelIdx[fl.label] - 1] || ("(" + labelIdx[fl.label] + ")");
-            return '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
+            num = circled[labelIdx[fl.label] - 1] || ("(" + labelIdx[fl.label] + ")");
+          }
+          const mainLink =
+            '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
               '<span class="fl-icon">' + fl.icon + '</span>' +
               '<span class="fl-text">' + escapeHtml(fl.label) + num + '</span>' +
               '<span style="opacity:0.6;font-size:10px;">↗</span>' +
             '</a>';
+          // Dropbox なら DROP BOX CHECK! で開くボタンを併設
+          let dbxCheckLink = '';
+          if (fl.label === 'Dropbox') {
+            const checkUrl = 'https://nrs2013.github.io/nrs-check/?addLink=' + encodeURIComponent(fl.url);
+            dbxCheckLink =
+              '<a class="file-link dbx-check" href="' + escapeHtml(checkUrl) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="DROP BOX CHECK! で開く（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;background:rgba(212,146,90,0.14);border-color:rgba(212,146,90,0.45);color:#d4925a;">' +
+                '<span class="fl-icon">📋</span>' +
+                '<span class="fl-text">CHECK で開く' + num + '</span>' +
+                '<span style="opacity:0.6;font-size:10px;">↗</span>' +
+              '</a>';
           }
-          return '<a class="file-link" href="' + escapeHtml(fl.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + escapeHtml(fl.label) + ' でダウンロード（' + escapeHtml(fl.url) + '）" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:11px;">' +
-            '<span class="fl-icon">' + fl.icon + '</span>' +
-            '<span class="fl-text">' + escapeHtml(fl.label) + '</span>' +
-            '<span style="opacity:0.6;font-size:10px;">↗</span>' +
-          '</a>';
+          return mainLink + dbxCheckLink;
         }).join("") +
       '</div>';
     }
