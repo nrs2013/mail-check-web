@@ -1725,7 +1725,10 @@
   try { senderNameMap = JSON.parse(localStorage.getItem(SENDER_NAME_KEY) || "{}"); } catch(e) {}
 
   // 完全URLキャッシュ（get_threadで取得した本文から抽出した完全リンク）
-  const FILE_LINKS_CACHE_KEY = "mailDashFileLinks_v1";
+  // v2: URL 抽出ロジック修正（日本語・%エンコード非ASCII・罫線で切る）に伴いキー昇格
+  const FILE_LINKS_CACHE_KEY = "mailDashFileLinks_v2";
+  // 旧バージョンのキャッシュは掃除（壊れた URL が再表示されるのを防ぐ）
+  try { localStorage.removeItem("mailDashFileLinks_v1"); } catch(e) {}
   let fileLinksCache = {};
   try { fileLinksCache = JSON.parse(localStorage.getItem(FILE_LINKS_CACHE_KEY) || "{}"); } catch(e) {}
   function saveSenderName(email, name, source) {
