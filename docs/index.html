@@ -4145,7 +4145,14 @@
       .then(() => window._mailCheckDrivePullCases ? window._mailCheckDrivePullCases() : Promise.resolve())
       .finally(() => refresh());
   } else {
-    _showLoginVeil();
+    // トークン無しでもログインベールを即出さず、サイレント再認証が裏で走るのを待つ。
+    // (HTML 側は display:none で起動しているので何も見えない)
+    // サイレント再認証が成功すれば callback で _hideLoginVeil() を呼ぶだけで完了、
+    // 失敗すれば callback 内で _showLoginVeil() が呼ばれる。
+    // 5 秒経っても結論が出なかったらセーフネットとしてベール表示する。
+    setTimeout(() => {
+      if (!_accessToken) _showLoginVeil();
+    }, 5000);
   }
 })();
 </script>
