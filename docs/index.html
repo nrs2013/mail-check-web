@@ -3486,6 +3486,11 @@
       const matches = text.match(p.re);
       if (matches) {
         matches.forEach(url => {
+          // メール本文で URL の直後に日本語が改行なく続くと、正規表現が日本語まで
+          // 取り込んで URL を壊す（例: dropbox.com/abc※2020/05/27...）。
+          // 非 ASCII 文字（全角・ひらがな・漢字等）が出てきた時点で URL を切る。
+          url = url.split(/[-￿]/)[0];
+          if (!url) return;
           // 末尾の不要文字（句読点等）削除
           const cleaned = url.replace(/[.,;:!?'"」）)】>]+$/, "");
           // ドメイン+パスをキーに（クエリ違いの重複を排除）
