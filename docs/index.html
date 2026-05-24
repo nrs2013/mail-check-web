@@ -11,11 +11,33 @@
 <meta name="apple-mobile-web-app-title" content="Mail-Check!">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Mail-Check!</title>
-<!-- Service Worker 登録（PWA 要件） -->
+<!-- ブラウザ HTTP キャッシュで古い HTML が残らないようにする（PWA でない経路でも常に最新を取りに行く） -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<!-- Service Worker 登録（PWA 要件）+ 更新検出して自動リロード -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      navigator.serviceWorker.register('service-worker.js').then(reg => {
+        // 新しい SW が installed されたら 古い SW を即引退させて自動リロード
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch(_) {}
+            }
+          });
+        });
+      }).catch(() => {});
+      // SW が切り替わった瞬間にページをリロード（古いコードに留まらない）
+      let _swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_swReloaded) return;
+        _swReloaded = true;
+        location.reload();
+      });
     });
   }
 </script>
