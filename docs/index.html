@@ -15,29 +15,15 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<!-- Service Worker 登録（PWA 要件）+ 更新検出して自動リロード -->
+<!-- Service Worker 登録（PWA 要件）— 自動リロードは控えめに（無限ループ防止） -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').then(reg => {
-        // 新しい SW が installed されたら 古い SW を即引退させて自動リロード
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch(_) {}
-            }
-          });
-        });
-      }).catch(() => {});
-      // SW が切り替わった瞬間にページをリロード（古いコードに留まらない）
-      let _swReloaded = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (_swReloaded) return;
-        _swReloaded = true;
-        location.reload();
-      });
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      // ⚠ 過去版で controllerchange → location.reload() の無限リロードに陥った経緯あり。
+      // 復旧策として「自動リロード機構を撤去」し、次回ユーザーが自分でリロードした時に
+      // 新コードが反映される形にする。SW 自体はキャッシュをしない fetch pass-through なので、
+      // 自動リロードがなくても古いコードに固定化されることはない。
     });
   }
 </script>
