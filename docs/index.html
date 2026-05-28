@@ -983,15 +983,13 @@
     }, 200);
   }
   function _login() {
-    // GIS Token Client の popup 方式（この OAuth クライアントは Implicit Flow=
-    // response_type=token に未対応で、手動 redirect すると Google が Error 400 を返す。
-    // GIS Token Client は正しい内部エンドポイントを使うのでこちらが正解）。
-    // のむさん環境は事前に nrs2013.github.io をポップアップ許可済みなので popup は出る。
+    // 壊す前（commit 5491d5d）の動いてた実装に完全復帰。
+    // GIS Token Client の popup 方式。_accessToken があればサイレント、無ければ consent。
     if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
-    _silentReauthInFlight = false;
-    _tokenClient.requestAccessToken({ prompt: "consent" });
+    _silentReauthInFlight = false; // 手動押下時は同意フローもOK
+    _tokenClient.requestAccessToken({ prompt: _accessToken ? "" : "consent" });
   }
-  // （旧 Implicit Flow の _consumeOAuthFragment は OAuth クライアント非対応のため撤去）
+  // （旧 Implicit Flow の _consumeOAuthFragment は OAuth クライアント非対応のため撤去・no-op）
   function _consumeOAuthFragment() { return false; }
   function _logout() {
     if (_accessToken && google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
