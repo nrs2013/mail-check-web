@@ -846,6 +846,14 @@
   const WEB_OAUTH_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.appdata";
   const WEB_TOKEN_KEY = "mailCheckWebToken_v1";
   const WEB_SETTINGS_KEY = "mailCheckWebSettings_v1";
+  // 緊急避難用: ?reset=auth でトークンを強制クリア（壊れた token でループに入ったらここから抜ける）
+  try {
+    const _sp = new URLSearchParams(location.search);
+    if (_sp.get('reset') === 'auth' || _sp.has('forceReauth')) {
+      localStorage.removeItem(WEB_TOKEN_KEY);
+      console.info('[reset] mailCheckWebToken_v1 cleared');
+    }
+  } catch(_) {}
   const WEB_KIND_CACHE_KEY = "mailDashKindCache_v16"; // 共用OK
   let _accessToken = null;
   let _tokenClient = null;
