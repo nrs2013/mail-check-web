@@ -983,42 +983,16 @@
     }, 200);
   }
   function _login() {
-    // ★ Token Client の popup モードは popup blocker / user gesture の都合で頻繁に
-    //    発火失敗する（特に MCP 経由のクリックや一部 Chrome 環境）。
-    //    根本対策として popup ではなく Implicit Flow を **同一タブで redirect** する方式に
-    //    切り替える。戻りで URL fragment に access_token が付くので、起動時に
-    //    _consumeOAuthFragment() でパースして使う。
-    const params = new URLSearchParams({
-      client_id: WEB_OAUTH_CLIENT_ID,
-      redirect_uri: location.origin + location.pathname,
-      response_type: 'token',
-      scope: WEB_OAUTH_SCOPES,
-      include_granted_scopes: 'true',
-      prompt: 'consent',
-      state: 'mc-login-' + Date.now(),
-    });
-    location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+    // GIS Token Client の popup 方式（この OAuth クライアントは Implicit Flow=
+    // response_type=token に未対応で、手動 redirect すると Google が Error 400 を返す。
+    // GIS Token Client は正しい内部エンドポイントを使うのでこちらが正解）。
+    // のむさん環境は事前に nrs2013.github.io をポップアップ許可済みなので popup は出る。
+    if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
+    _silentReauthInFlight = false;
+    _tokenClient.requestAccessToken({ prompt: "consent" });
   }
-  // 起動時に URL の hash fragment から access_token を回収（Implicit Flow の戻り）
-  function _consumeOAuthFragment() {
-    try {
-      if (!location.hash || !location.hash.includes('access_token')) return false;
-      const h = new URLSearchParams(location.hash.slice(1));
-      const token = h.get('access_token');
-      const expiresIn = parseInt(h.get('expires_in') || '3600', 10);
-      const err = h.get('error');
-      if (err) {
-        // ユーザーがキャンセルした等
-        history.replaceState({}, '', location.pathname + location.search);
-        return false;
-      }
-      if (!token) return false;
-      _accessToken = token;
-      _saveToken(token, expiresIn);
-      history.replaceState({}, '', location.pathname + location.search);
-      return true;
-    } catch(_) { return false; }
-  }
+  // （旧 Implicit Flow の _consumeOAuthFragment は OAuth クライアント非対応のため撤去）
+  function _consumeOAuthFragment() { return false; }
   function _logout() {
     if (_accessToken && google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
       google.accounts.oauth2.revoke(_accessToken, () => {});
