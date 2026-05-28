@@ -947,6 +947,8 @@
       },
     });
     // ===== ページロード直後の自動ログイン =====
+    // Implicit Flow の戻り（URL hash に access_token あり）なら即 token 保存
+    _consumeOAuthFragment();
     // localStorage に有効なトークンが残ってればそのまま即起動（最速）
     if (_restoreToken()) {
       _hideLoginVeil();
@@ -981,19 +983,42 @@
     }, 200);
   }
   function _login() {
-    if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
-    _silentReauthInFlight = false;
-    // ★ ログイン手段を 2 段階構えに変更:
-    //   1) まずサイレント再認証 (prompt:"") を試す ─ Chrome がアカウント覚えてれば
-    //      popup blocker / user gesture を一切気にせず token 取得できる。
-    //   2) サイレントが失敗した場合 callback 内で _mailCheckShouldConsent=true をセット。
-    //      ユーザーがもう一度ボタンを押すと consent モードで popup 起動を試す。
-    const promptMode = window._mailCheckShouldConsent ? "consent" : "";
-    window._mailCheckShouldConsent = false; // 一度使ったら解除
-    _tokenClient.requestAccessToken({ prompt: promptMode });
+    // ★ Token Client の popup モードは popup blocker / user gesture の都合で頻繁に
+    //    発火失敗する（特に MCP 経由のクリックや一部 Chrome 環境）。
+    //    根本対策として popup ではなく Implicit Flow を **同一タブで redirect** する方式に
+    //    切り替える。戻りで URL fragment に access_token が付くので、起動時に
+    //    _consumeOAuthFragment() でパースして使う。
+    const params = new URLSearchParams({
+      client_id: WEB_OAUTH_CLIENT_ID,
+      redirect_uri: location.origin + location.pathname,
+      response_type: 'token',
+      scope: WEB_OAUTH_SCOPES,
+      include_granted_scopes: 'true',
+      prompt: 'consent',
+      state: 'mc-login-' + Date.now(),
+    });
+    location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
   }
-  // サイレント失敗時に立てるフラグ。次クリックで consent モードに昇格
-  window._mailCheckShouldConsent = false;
+  // 起動時に URL の hash fragment から access_token を回収（Implicit Flow の戻り）
+  function _consumeOAuthFragment() {
+    try {
+      if (!location.hash || !location.hash.includes('access_token')) return false;
+      const h = new URLSearchParams(location.hash.slice(1));
+      const token = h.get('access_token');
+      const expiresIn = parseInt(h.get('expires_in') || '3600', 10);
+      const err = h.get('error');
+      if (err) {
+        // ユーザーがキャンセルした等
+        history.replaceState({}, '', location.pathname + location.search);
+        return false;
+      }
+      if (!token) return false;
+      _accessToken = token;
+      _saveToken(token, expiresIn);
+      history.replaceState({}, '', location.pathname + location.search);
+      return true;
+    } catch(_) { return false; }
+  }
   function _logout() {
     if (_accessToken && google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
       google.accounts.oauth2.revoke(_accessToken, () => {});
@@ -4180,6 +4205,8 @@
   renderCases();
 
   // === Web版：トークンがあれば即起動、なければログインカード表示 ===
+  // Implicit Flow の戻り（URL hash に access_token あり）も先に回収しておく
+  if (typeof _consumeOAuthFragment === 'function') _consumeOAuthFragment();
   if (_restoreToken()) {
     _hideLoginVeil();
     // Drive から 設定 + PIC UP! を pull してから refresh
