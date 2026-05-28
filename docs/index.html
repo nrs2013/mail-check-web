@@ -15,16 +15,14 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<!-- Service Worker 登録（PWA 要件）— 自動リロードは控えめに（無限ループ防止） -->
+<!-- ⚠ 過去版で controllerchange 無限リロードや SW キャッシュ罠でログイン不能になった経緯あり。
+     復旧策として、まず既存の SW を全て unregister してクリーンな状態を作る。
+     その後、必要なら次回ロードで新規 register（PWA インストールしてる人は再インストール必要）。 -->
 <script>
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
-      // ⚠ 過去版で controllerchange → location.reload() の無限リロードに陥った経緯あり。
-      // 復旧策として「自動リロード機構を撤去」し、次回ユーザーが自分でリロードした時に
-      // 新コードが反映される形にする。SW 自体はキャッシュをしない fetch pass-through なので、
-      // 自動リロードがなくても古いコードに固定化されることはない。
-    });
+    navigator.serviceWorker.getRegistrations().then(rs => {
+      rs.forEach(r => r.unregister());
+    }).catch(() => {});
   }
 </script>
 <!-- PDF.js: PDF添付の1ページ目をサムネ化するために使う -->
