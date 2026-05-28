@@ -919,6 +919,8 @@
           // サイレント再認証が失敗した場合は alert を出さず、ログイン画面を見せて手動操作を促す
           // （prompt:"" を最初に試すフローなので、初回失敗は普通にあり得る）
           if (resp.error === "popup_closed_by_user" || resp.error === "user_cancelled" || resp.error === "access_denied" || resp.error === "interaction_required" || resp.error === "login_required" || resp.error === "consent_required") {
+            // 次にユーザーがログインボタンを押した時、consent モード（popup あり）に昇格させる
+            window._mailCheckShouldConsent = true;
             _showLoginVeil();
             return;
           }
@@ -980,9 +982,18 @@
   }
   function _login() {
     if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
-    _silentReauthInFlight = false; // 手動押下時は同意フローもOK
-    _tokenClient.requestAccessToken({ prompt: _accessToken ? "" : "consent" });
+    _silentReauthInFlight = false;
+    // ★ ログイン手段を 2 段階構えに変更:
+    //   1) まずサイレント再認証 (prompt:"") を試す ─ Chrome がアカウント覚えてれば
+    //      popup blocker / user gesture を一切気にせず token 取得できる。
+    //   2) サイレントが失敗した場合 callback 内で _mailCheckShouldConsent=true をセット。
+    //      ユーザーがもう一度ボタンを押すと consent モードで popup 起動を試す。
+    const promptMode = window._mailCheckShouldConsent ? "consent" : "";
+    window._mailCheckShouldConsent = false; // 一度使ったら解除
+    _tokenClient.requestAccessToken({ prompt: promptMode });
   }
+  // サイレント失敗時に立てるフラグ。次クリックで consent モードに昇格
+  window._mailCheckShouldConsent = false;
   function _logout() {
     if (_accessToken && google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
       google.accounts.oauth2.revoke(_accessToken, () => {});
