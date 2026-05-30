@@ -846,6 +846,10 @@
   const WEB_OAUTH_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.appdata";
   const WEB_TOKEN_KEY = "mailCheckWebToken_v1";
   const WEB_SETTINGS_KEY = "mailCheckWebSettings_v1";
+  // Cloudflare Worker (token exchange backend) の URL。
+  // Cloudflare デプロイ後、ここを実 URL に書き換える（例: "https://mail-check-token.<sub>.workers.dev"）。
+  // プレースホルダ `__WORKER_URL__` のままなら旧 GIS popup フローにフォールバック（cookie 許可で動く可能性を維持）。
+  const TOKEN_EX = "__WORKER_URL__";
   // 緊急避難用: ?reset=auth でトークンを強制クリア（壊れた token でループに入ったらここから抜ける）
   try {
     const _sp = new URLSearchParams(location.search);
@@ -982,15 +986,107 @@
       }
     }, 200);
   }
-  function _login() {
-    // 壊す前（commit 5491d5d）の動いてた実装に完全復帰。
-    // GIS Token Client の popup 方式。_accessToken があればサイレント、無ければ consent。
-    if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
-    _silentReauthInFlight = false; // 手動押下時は同意フローもOK
-    _tokenClient.requestAccessToken({ prompt: _accessToken ? "" : "consent" });
+  // PKCE: code_verifier と code_challenge を生成（Code Flow 用）
+  async function _pkce() {
+    const arr = new Uint8Array(48);
+    crypto.getRandomValues(arr);
+    const verifier = btoa(String.fromCharCode.apply(null, arr))
+                     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(hash)))
+                      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return { verifier, challenge };
   }
-  // （旧 Implicit Flow の _consumeOAuthFragment は OAuth クライアント非対応のため撤去・no-op）
-  function _consumeOAuthFragment() { return false; }
+  async function _login() {
+    // backend 未設定 (TOKEN_EX プレースホルダ) なら旧 GIS popup にフォールバック。
+    // これにより Cloudflare デプロイ前でも本番が壊れず、cookie 許可で動く可能性も維持される。
+    if (TOKEN_EX.startsWith('__')) {
+      if (!_tokenClient) { alert("Google認証がまだ準備中…1秒後にもう一度。"); return; }
+      _silentReauthInFlight = false;
+      _tokenClient.requestAccessToken({ prompt: _accessToken ? "" : "consent" });
+      return;
+    }
+    // backend あり: Authorization Code Flow + PKCE で同タブ redirect。
+    // popup / 3rd-party cookie / FedCM どれにも依存しない堅牢な方式。
+    try {
+      const { verifier, challenge } = await _pkce();
+      sessionStorage.setItem('mc_pkce_v', verifier);
+      const params = new URLSearchParams({
+        client_id: WEB_OAUTH_CLIENT_ID,
+        redirect_uri: 'https://nrs2013.github.io/mail-check-web/',
+        response_type: 'code',
+        scope: WEB_OAUTH_SCOPES,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        access_type: 'online',
+        prompt: _accessToken ? '' : 'consent',
+        include_granted_scopes: 'true'
+      });
+      location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+    } catch (e) {
+      console.error('login error:', e);
+      alert('ログイン処理エラー: ' + (e && e.message || e));
+    }
+  }
+  // 戻りハンドラ: Code Flow の `?code=` を受けて backend で token 交換。
+  // backend 未設定 or `?code=` なし or エラーパラメータなら何もせず false を返す。
+  // fetch は fire-and-forget で、完了したら _saveToken → location.replace でクリーン再起動。
+  function _consumeOAuthFragment() {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const errParam = sp.get('error');
+      const code = sp.get('code');
+      if (errParam) {
+        console.warn('OAuth error:', errParam);
+        alert('Googleログインがキャンセル/失敗しました: ' + errParam);
+        history.replaceState({}, '', location.pathname);
+        return false;
+      }
+      if (!code) return false;
+      // ここから先は backend ある時のみ意味がある
+      if (TOKEN_EX.startsWith('__')) {
+        console.warn('TOKEN_EX 未設定: code を受領したが token 交換できない');
+        history.replaceState({}, '', location.pathname);
+        return false;
+      }
+      const verifier = sessionStorage.getItem('mc_pkce_v');
+      sessionStorage.removeItem('mc_pkce_v');
+      if (!verifier) {
+        console.warn('PKCE verifier 不明（sessionStorage clear 済？）');
+        history.replaceState({}, '', location.pathname);
+        return false;
+      }
+      // 非同期 token 交換 → 成功なら localStorage 保存 + クリーンリロード
+      document.body && (document.body.style.cursor = 'wait');
+      fetch(TOKEN_EX + '/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, code_verifier: verifier })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.access_token) {
+          _saveToken(data.access_token, data.expires_in || 3600);
+          // ?code= を消してクリーン状態で再起動 → _restoreToken が成功する
+          location.replace(location.pathname);
+        } else {
+          alert('ログインエラー: ' + (data && (data.error || JSON.stringify(data)) || 'token_exchange_failed'));
+          history.replaceState({}, '', location.pathname);
+          document.body && (document.body.style.cursor = '');
+        }
+      })
+      .catch(e => {
+        alert('token 交換通信エラー: ' + (e && e.message || e));
+        history.replaceState({}, '', location.pathname);
+        document.body && (document.body.style.cursor = '');
+      });
+      // 同期戻り: false（fetch 完了でリロードするので、この時点では token はまだ無い）
+      return false;
+    } catch(e) {
+      console.warn('_consumeOAuthFragment error:', e);
+      return false;
+    }
+  }
   function _logout() {
     if (_accessToken && google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
       google.accounts.oauth2.revoke(_accessToken, () => {});
