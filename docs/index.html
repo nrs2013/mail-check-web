@@ -960,31 +960,13 @@
       const pullChain = (window._mailCheckDrivePullSettings ? window._mailCheckDrivePullSettings() : Promise.resolve())
         .then(() => window._mailCheckDrivePullCases ? window._mailCheckDrivePullCases() : Promise.resolve())
         .finally(() => { if (typeof refresh === "function") refresh(); });
-      // 残り時間に応じて裏で再認証を仕込む
-      try {
-        const c = JSON.parse(localStorage.getItem(WEB_TOKEN_KEY) || "null");
-        if (c && c.exp) {
-          const remainMs = c.exp - Date.now();
-          const refreshAt = Math.max(60 * 1000, remainMs - 5 * 60 * 1000);
-          if (_silentReauthTimer) clearTimeout(_silentReauthTimer);
-          _silentReauthTimer = setTimeout(() => {
-            if (_tokenClient && !_silentReauthInFlight) {
-              _silentReauthInFlight = true;
-              try { _tokenClient.requestAccessToken({ prompt: "" }); } catch(e) { _silentReauthInFlight = false; }
-            }
-          }, refreshAt);
-        }
-      } catch(e) {}
+      // （旧 GIS popup によるサイレント再認証は廃止。期限が切れたら静かにログイン画面を出す方式に統一。
+      //   将来 worker /refresh による無音延命を入れる場合はここにフックする）
       return;
     }
-    // トークン無し or 期限切れ → サイレント認証を試みる（同意済みなら裏で通る）
-    // 失敗したら callback 内でログイン画面を表示する
-    setTimeout(() => {
-      if (!_accessToken && _tokenClient && !_silentReauthInFlight) {
-        _silentReauthInFlight = true;
-        try { _tokenClient.requestAccessToken({ prompt: "" }); } catch(e) { _silentReauthInFlight = false; _showLoginVeil(); }
-      }
-    }, 200);
+    // トークン無し or 期限切れ → 静かにログイン画面を表示するだけ。
+    // （Code Flow backend 方式に移行済みのため、GIS の自動 popup サイレント認証は廃止＝"謎の小窓"を出さない）
+    _showLoginVeil();
   }
   // PKCE: code_verifier と code_challenge を生成（Code Flow 用）
   async function _pkce() {
