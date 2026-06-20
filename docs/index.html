@@ -849,7 +849,7 @@
   // Cloudflare Worker (token exchange backend) の URL。
   // Cloudflare デプロイ後、ここを実 URL に書き換える（例: "https://mail-check-token.<sub>.workers.dev"）。
   // プレースホルダ `__WORKER_URL__` のままなら旧 GIS popup フローにフォールバック（cookie 許可で動く可能性を維持）。
-  const TOKEN_EX = "__WORKER_URL__";
+  const TOKEN_EX = "https://mail-check-token.nomura0913.workers.dev";
   // 緊急避難用: ?reset=auth でトークンを強制クリア（壊れた token でループに入ったらここから抜ける）
   try {
     const _sp = new URLSearchParams(location.search);
